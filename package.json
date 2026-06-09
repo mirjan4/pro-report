@@ -1,0 +1,17 @@
+{
+  "name": "takaful-monorepo",
+  "version": "1.0.0",
+  "description": "Takaful Financial Year Report - Monorepo Setup",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm install --prefix server && npm install --prefix client --legacy-peer-deps && npm run build --prefix client",
+    "start": "node server/server.js",
+    "seed": "npm run seed --prefix server",
+    "install-server": "npm install --prefix server",
+    "install-client": "npm install --prefix client --legacy-peer-deps",
+    "install-all": "npm install && npm run install-server && npm run install-client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
