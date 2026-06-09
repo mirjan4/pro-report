@@ -46,7 +46,31 @@ const Navbar = () => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   const [adminSectionExpanded, setAdminSectionExpanded] = useState(false);
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarAnalyticsExpanded');
+    return saved ? saved === 'true' : true;
+  });
+  const [adminExpanded, setAdminExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarAdminExpanded');
+    return saved ? saved === 'true' : true;
+  });
   const navigate = useNavigate();
+
+  const toggleAnalytics = () => {
+    setAnalyticsExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebarAnalyticsExpanded', String(next));
+      return next;
+    });
+  };
+
+  const toggleAdmin = () => {
+    setAdminExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebarAdminExpanded', String(next));
+      return next;
+    });
+  };
 
   const handleLogout = () => {
     logout();
@@ -286,21 +310,73 @@ const Navbar = () => {
 
         {/* Main Navigation Links */}
         <div className="p-4 space-y-1.5 overflow-y-auto no-scrollbar max-h-[calc(100vh-380px)]">
-          {!isCollapsed ? (
-            <span className="px-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-2 animate-fadeIn">Analytics</span>
-          ) : (
-            <div className="border-b border-white/5 my-2" />
-          )}
-          {renderNavLinks(navItems)}
+          {/* Analytics Section Header */}
+          <button
+            onClick={toggleAnalytics}
+            className={`w-full flex items-center justify-between py-2 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer ${
+              isCollapsed ? 'justify-center px-0 mb-2' : 'px-4 mb-2'
+            }`}
+            title={isCollapsed ? (analyticsExpanded ? 'Collapse Analytics' : 'Expand Analytics') : ''}
+          >
+            {!isCollapsed ? (
+              <>
+                <span>Analytics</span>
+                <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${analyticsExpanded ? 'rotate-90' : ''}`} />
+              </>
+            ) : (
+              <ChevronRight className={`w-4 h-4 text-gold transition-transform duration-300 ${analyticsExpanded ? 'rotate-90' : ''}`} />
+            )}
+          </button>
 
+          {/* Analytics Links */}
+          <AnimatePresence initial={false}>
+            {analyticsExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="overflow-hidden space-y-1.5"
+              >
+                {renderNavLinks(navItems)}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Administration Section Header */}
           {user?.role === 'admin' && (
             <>
-              {!isCollapsed ? (
-                <span className="px-4 pt-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-2 animate-fadeIn">Administration</span>
-              ) : (
-                <div className="border-b border-white/5 my-4" />
-              )}
-              {renderNavLinks(adminItems)}
+              <button
+                onClick={toggleAdmin}
+                className={`w-full flex items-center justify-between py-2 mt-4 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer ${
+                  isCollapsed ? 'justify-center px-0 mb-2' : 'px-4 mb-2'
+                }`}
+                title={isCollapsed ? (adminExpanded ? 'Collapse Administration' : 'Expand Administration') : ''}
+              >
+                {!isCollapsed ? (
+                  <>
+                    <span>Administration</span>
+                    <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${adminExpanded ? 'rotate-90' : ''}`} />
+                  </>
+                ) : (
+                  <ChevronRight className={`w-4 h-4 text-gold transition-transform duration-300 ${adminExpanded ? 'rotate-90' : ''}`} />
+                )}
+              </button>
+
+              {/* Administration Links */}
+              <AnimatePresence initial={false}>
+                {adminExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden space-y-1.5"
+                  >
+                    {renderNavLinks(adminItems)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </>
           )}
         </div>
