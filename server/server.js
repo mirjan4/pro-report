@@ -30,13 +30,20 @@ app.use('/api/reports', require('./routes/reports'));
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
-// Serve React frontend in production
-if (process.env.NODE_ENV === 'production') {
-  const clientBuild = path.join(__dirname, '..', 'client', 'dist');
+// Serve React frontend in production or if client/dist is present
+const clientBuild = path.join(__dirname, '..', 'client', 'dist');
+const fs = require('fs');
+
+if (process.env.NODE_ENV === 'production' || fs.existsSync(clientBuild)) {
   app.use(express.static(clientBuild));
   // All non-API routes → React index.html (client-side routing)
   app.get('*', (req, res) => {
-    res.sendFile(path.join(clientBuild, 'index.html'));
+    const indexPath = path.join(clientBuild, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).json({ success: false, message: 'Route not found' });
+    }
   });
 } else {
   // 404 for API-only dev mode
