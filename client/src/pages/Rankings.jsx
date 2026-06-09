@@ -254,37 +254,37 @@ const Rankings = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-950/40 text-gray-400 text-xs font-semibold uppercase tracking-wider border-b border-white/5">
-                <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => handleSort('rank')}>
+                <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:w-[8%]" onClick={() => handleSort('rank')}>
                   <div className="flex items-center space-x-1">
                     <span>Rank</span>
                     {sortField === 'rank' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
-                <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
+                <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:w-[52%]" onClick={() => handleSort('name')}>
                   <div className="flex items-center space-x-1">
                     <span>PRO Name</span>
                     {sortField === 'name' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
-                <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => handleSort('total')}>
-                  <div className="flex items-center space-x-1">
+                <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:w-[25%]" onClick={() => handleSort('total')}>
+                  <div className="flex items-center space-x-1 xl:justify-end">
                     <span>Total Collection</span>
                     {sortField === 'total' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
-                <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => handleSort('growth')}>
+                <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:hidden" onClick={() => handleSort('growth')}>
                   <div className="flex items-center space-x-1">
                     <span>Growth %</span>
                     {sortField === 'growth' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
-                <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => handleSort('status')}>
-                  <div className="flex items-center space-x-1">
+                <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:w-[15%]" onClick={() => handleSort('status')}>
+                  <div className="flex items-center space-x-1 xl:justify-center">
                     <span>Status</span>
                     {sortField === 'status' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4 xl:px-4 xl:py-5 text-right xl:hidden">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -300,23 +300,23 @@ const Rankings = () => {
                         isActiveContributor ? 'border-l-4 border-l-emerald-500/50' : ''
                       } ${isZeroContributor ? 'border-l-4 border-l-rose-500/50 bg-rose-950/5' : ''}`}
                     >
-                      <td className="px-6 py-4 font-semibold text-white">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 font-semibold text-white align-middle xl:w-[8%]">
                         {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank}
                       </td>
-                      <td className="px-6 py-4">
-                        <Link to={`/pro/${p.proId}`} className="font-semibold text-white hover:text-gold transition-colors duration-150 block">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 align-middle xl:w-[52%]">
+                        <Link to={`/pro/${p.proId}`} className="font-semibold text-white hover:text-gold transition-colors duration-150 block truncate max-w-full xl:text-[19px] xl:font-bold">
                           {p.name}
                         </Link>
                       </td>
-                      <td className="px-6 py-4 font-medium text-white">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 font-medium text-white align-middle xl:w-[25%] text-right xl:text-right xl:text-[21px] xl:font-extrabold xl:text-gold whitespace-nowrap">
                         ₹{p.total.toLocaleString('en-IN')}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 align-middle xl:hidden">
                         <span className={`text-sm font-semibold ${p.growth >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {p.growth >= 0 ? '+' : ''}{p.growth}%
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 align-middle xl:w-[15%] text-center xl:text-center">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                             p.status === 'active'
@@ -332,7 +332,7 @@ const Rankings = () => {
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 xl:px-4 xl:py-5 text-right align-middle xl:hidden">
                         <Link
                           to={`/pro/${p.proId}`}
                           className="inline-flex items-center space-x-1.5 bg-premium-blue/30 hover:bg-premium-blue/50 text-gold border border-premium-light/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
@@ -346,7 +346,10 @@ const Rankings = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-400 text-sm">
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-400 text-sm xl:hidden">
+                    No records match your criteria.
+                  </td>
+                  <td colSpan="4" className="hidden xl:table-cell px-6 py-8 text-center text-gray-400 text-sm">
                     No records match your criteria.
                   </td>
                 </tr>
