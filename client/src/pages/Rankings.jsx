@@ -23,7 +23,7 @@ const Rankings = () => {
       if (!selectedFY?._id) return;
       setLoading(true);
       try {
-        const modParam = selectedModule ? `&module=${selectedModule._id}` : '';
+        const modParam = selectedModule && selectedModule.code !== 'all' ? `&module=${selectedModule._id}` : '';
         const res = await client.get(`/api/analytics/rankings?financialYear=${selectedFY._id}${modParam}`);
         if (res.data.success) {
           setRankings(res.data.data.rankings || []);
@@ -100,13 +100,13 @@ const Rankings = () => {
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'PRO Rankings');
-    XLSX.writeFile(workbook, `PRO_Rankings_${selectedFY?.year}.xlsx`);
+    XLSX.writeFile(workbook, `PRO_Rankings_${selectedFY?._id === 'all' ? 'All-Years' : selectedFY?.year}.xlsx`);
   };
 
   // Export to PDF
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text(`PRO Performance Rankings - ${selectedFY?.label}`, 14, 15);
+    doc.text(`PRO Performance Rankings - ${selectedFY?._id === 'all' ? 'All Years' : selectedFY?.label}`, 14, 15);
 
     const tableColumn = ['Rank', 'Name', 'Total Collection (INR)', 'Growth %', 'Status'];
     const tableRows = sortedList.map(p => [
@@ -126,7 +126,7 @@ const Rankings = () => {
       headStyles: { fillColor: [13, 27, 42] }
     });
 
-    doc.save(`PRO_Rankings_${selectedFY?.year}.pdf`);
+    doc.save(`PRO_Rankings_${selectedFY?._id === 'all' ? 'All-Years' : selectedFY?.year}.pdf`);
   };
 
   const top3 = rankings.slice(0, 3);
@@ -147,7 +147,14 @@ const Rankings = () => {
           <h1 className="text-3xl font-bold text-white">
             Performance <span className="gold-gradient-text">Rankings</span>
           </h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {selectedFY?._id === 'all' && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border"
+                style={{ color: '#d4af37', borderColor: '#d4af3744', background: '#d4af3718' }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#d4af37' }} />
+                Scope: All Years
+              </span>
+            )}
             {selectedModule && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border"
                 style={{ color: selectedModule.color, borderColor: selectedModule.color + '44', background: selectedModule.color + '18' }}>
@@ -155,7 +162,7 @@ const Rankings = () => {
                 {selectedModule.name}
               </span>
             )}
-            <p className="text-gray-400 text-sm">Top performers & ranking metrics for {selectedFY?.label}</p>
+            <p className="text-gray-400 text-sm">Top performers &amp; ranking metrics for {selectedFY?.label}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -262,7 +269,7 @@ const Rankings = () => {
                 </th>
                 <th className="px-6 py-4 xl:px-4 xl:py-5 cursor-pointer hover:text-white xl:w-[52%]" onClick={() => handleSort('name')}>
                   <div className="flex items-center space-x-1">
-                    <span>PRO Name</span>
+                    <span>{(!selectedModule || selectedModule.code === 'all') ? 'Category Name' : 'PRO Name'}</span>
                     {sortField === 'name' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                   </div>
                 </th>
@@ -295,8 +302,8 @@ const Rankings = () => {
 
                   return (
                     <tr
-                      key={p.proId}
-                      className={`hover:bg-white/[0.02] transition-colors duration-150 ${
+                       key={p.proId}
+                       className={`hover:bg-white/[0.02] transition-colors duration-150 ${
                         isActiveContributor ? 'border-l-4 border-l-emerald-500/50' : ''
                       } ${isZeroContributor ? 'border-l-4 border-l-rose-500/50 bg-rose-950/5' : ''}`}
                     >
@@ -304,9 +311,15 @@ const Rankings = () => {
                         {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank}
                       </td>
                       <td className="px-6 py-4 xl:px-4 xl:py-5 align-middle xl:w-[52%]">
-                        <Link to={`/pro/${p.proId}`} className="font-semibold text-white hover:text-gold transition-colors duration-150 block truncate max-w-full xl:text-[19px] xl:font-bold">
-                          {p.name}
-                        </Link>
+                        {p.isCategory ? (
+                          <span className="font-semibold text-white block truncate max-w-full xl:text-[19px] xl:font-bold">
+                            {p.name}
+                          </span>
+                        ) : (
+                          <Link to={`/pro/${p.proId}`} className="font-semibold text-white hover:text-gold transition-colors duration-150 block truncate max-w-full xl:text-[19px] xl:font-bold">
+                            {p.name}
+                          </Link>
+                        )}
                       </td>
                       <td className="px-6 py-4 xl:px-4 xl:py-5 font-medium text-white align-middle xl:w-[25%] text-right xl:text-right xl:text-[21px] xl:font-extrabold xl:text-gold whitespace-nowrap">
                         ₹{p.total.toLocaleString('en-IN')}
@@ -333,13 +346,15 @@ const Rankings = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 xl:px-4 xl:py-5 text-right align-middle xl:hidden">
-                        <Link
-                          to={`/pro/${p.proId}`}
-                          className="inline-flex items-center space-x-1.5 bg-premium-blue/30 hover:bg-premium-blue/50 text-gold border border-premium-light/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Profile</span>
-                        </Link>
+                        {!p.isCategory && (
+                          <Link
+                            to={`/pro/${p.proId}`}
+                            className="inline-flex items-center space-x-1.5 bg-premium-blue/30 hover:bg-premium-blue/50 text-gold border border-premium-light/20 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Profile</span>
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   );
@@ -363,7 +378,7 @@ const Rankings = () => {
           <div className="p-6 border-t border-white/5 flex items-center justify-between">
             <span className="text-xs text-gray-400">
               Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, sortedList.length)} of{' '}
-              {sortedList.length} contributors
+              {sortedList.length} {(!selectedModule || selectedModule.code === 'all') ? 'categories' : 'contributors'}
             </span>
             <div className="flex items-center space-x-2">
               <button

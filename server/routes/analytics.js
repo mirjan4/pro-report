@@ -2,49 +2,100 @@ const express = require('express');
 const router = express.Router();
 const Collection = require('../models/Collection');
 const Pro = require('../models/Pro');
-const FinancialYear = require('../models/FinancialYear');
 const Module = require('../models/Module');
 const { protect } = require('../middleware/auth');
 
 const MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
 
-async function getModuleCollections(financialYearId, moduleId) {
-  const filter = { financialYear: financialYearId };
+function getModuleId(m) {
+  if (!m) return '';
+  return m._id ? m._id.toString() : m.toString();
+}
+
+function getProId(p) {
+  if (!p) return '';
+  return p._id ? p._id.toString() : p.toString();
+}
+
+function getFYDateRange(fyId) {
+  if (!fyId || fyId === 'all') {
+    const startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0)); // Very early start
+    const endDate = new Date(Date.UTC(2100, 11, 31, 23, 59, 59, 999)); // Very late end
+    return { startDate, endDate };
+  }
+  const startYear = parseInt(fyId);
+  const endYear = startYear + 1;
+  const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
+  const endDate = new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999)); // March 31
+  return { startDate, endDate };
+}
+
+async function getModuleCollections(fyId, moduleId) {
+  let filter = {};
+  if (fyId && fyId !== 'all') {
+    const { startDate, endDate } = getFYDateRange(fyId);
+    filter.date = { $gte: startDate, $lte: endDate };
+  }
   if (moduleId) filter.module = moduleId;
-  return Collection.find(filter);
+  return Collection.find(filter).populate('pro').populate('module').lean();
 }
 
 // GET /api/analytics/kpi?financialYear=id&module=id
 router.get('/kpi', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId } = req.query;
-    let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
-    if (!fyId) return res.json({ success: true, data: {} });
+    let fyId = financialYear || 'all';
 
     const collections = await getModuleCollections(fyId, moduleId);
-    const total = collections.reduce((s, c) => s + c.totalAmount, 0);
+    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
 
-    const currentFY = await FinancialYear.findById(fyId);
+    let currentFY;
+    if (fyId === 'all') {
+      currentFY = {
+        _id: 'all',
+        year: 'All Years',
+        label: 'All Years',
+        isActive: true
+      };
+    } else {
+      const startYear = parseInt(fyId);
+      const endYear = startYear + 1;
+      currentFY = {
+        _id: fyId,
+        year: `${startYear}-${String(endYear).substring(2)}`,
+        label: `${startYear}-${String(endYear).substring(2)}`,
+        startYear,
+        endYear,
+        isActive: true
+      };
+    }
+
     let growthPct = 0, prevTotal = 0;
-    if (currentFY) {
-      const prevFY = await FinancialYear.findOne({ startYear: currentFY.startYear - 1 });
-      if (prevFY) {
-        const prevCols = await getModuleCollections(prevFY._id, moduleId);
-        prevTotal = prevCols.reduce((s, c) => s + c.totalAmount, 0);
-        growthPct = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
-      }
+    if (fyId !== 'all' && currentFY && currentFY.startYear) {
+      const prevStartYear = currentFY.startYear - 1;
+      const prevEndYear = prevStartYear + 1;
+      const prevFY = {
+        _id: prevStartYear.toString(),
+        year: `${prevStartYear}-${String(prevEndYear).substring(2)}`,
+        label: `FY ${prevStartYear}-${String(prevEndYear).substring(2)}`,
+        startYear: prevStartYear,
+        endYear: prevEndYear,
+        isActive: false
+      };
+      const prevCols = await getModuleCollections(prevFY._id, moduleId);
+      prevTotal = prevCols.reduce((s, c) => s + (c.amount || 0), 0);
+      growthPct = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
     }
 
     const proFilter = { status: 'active' };
     if (moduleId) proFilter.module = moduleId;
     const activePros = await Pro.countDocuments(proFilter);
-    const contributingPros = [...new Set(collections.map(c => c.pro.toString()))].length;
+    const contributingPros = [...new Set(collections.filter(c => c.pro).map(c => c.pro._id ? c.pro._id.toString() : c.pro.toString()))].length;
 
     res.json({ success: true, data: {
       total, growthPct: Math.round(growthPct * 100) / 100,
       prevTotal, activePros, contributingPros,
-      zeroPros: activePros - contributingPros, fyLabel: currentFY?.label
+      zeroPros: Math.max(0, activePros - contributingPros), fyLabel: currentFY?.label
     }});
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -54,14 +105,20 @@ router.get('/monthly', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId } = req.query;
     let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
+    if (!fyId) {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+      fyId = startYear.toString();
+    }
     const collections = await getModuleCollections(fyId, moduleId);
     const monthlyData = MONTHS.map((month, idx) => {
       const monthCols = collections.filter(c => c.month === month);
       return {
         month, index: idx,
-        total: monthCols.reduce((s, c) => s + c.totalAmount, 0),
-        amount: monthCols.reduce((s, c) => s + c.amount, 0),
+        total: monthCols.reduce((s, c) => s + (c.amount || 0), 0),
+        amount: monthCols.reduce((s, c) => s + (c.amount || 0), 0),
         count: monthCols.length
       };
     });
@@ -78,23 +135,94 @@ router.get('/monthly', protect, async (req, res) => {
 });
 
 // GET /api/analytics/category?financialYear=id
-// Returns breakdown per module for the given year
 router.get('/category', protect, async (req, res) => {
   try {
     const { financialYear } = req.query;
     let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
+    if (!fyId) {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+      fyId = startYear.toString();
+    }
     const [collections, modules] = await Promise.all([
-      Collection.find({ financialYear: fyId }),
-      Module.find({ isActive: true }).sort({ sortOrder: 1, name: 1 })
+      getModuleCollections(fyId, null),
+      Module.find({}).sort({ sortOrder: 1, name: 1 })
     ]);
-    const total = collections.reduce((s, c) => s + c.totalAmount, 0);
+    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
     const breakdown = modules.map(mod => {
-      const modCols = collections.filter(c => c.module.toString() === mod._id.toString());
-      const value = modCols.reduce((s, c) => s + c.totalAmount, 0);
+      const modCols = collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString());
+      const value = modCols.reduce((s, c) => s + (c.amount || 0), 0);
       return { name: mod.name, code: mod.code, color: mod.color, value, pct: total > 0 ? (value / total * 100).toFixed(1) : 0 };
     });
     res.json({ success: true, data: breakdown });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
+// GET /api/analytics/category-monthly?financialYear=id&month=MonthName
+router.get('/category-monthly', protect, async (req, res) => {
+  try {
+    const { financialYear, month: filterMonth } = req.query;
+    let fyId = financialYear;
+    if (!fyId) {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      fyId = (currentMonth >= 3 ? currentYear : currentYear - 1).toString();
+    }
+
+    const [collections, modules] = await Promise.all([
+      getModuleCollections(fyId, null),
+      Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 })
+    ]);
+
+    const grandTotal = collections.reduce((s, c) => s + (c.amount || 0), 0);
+
+    const categoryBreakdown = modules.map(mod => {
+      const modCols = filterMonth
+        ? collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString() && c.month === filterMonth)
+        : collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString());
+      const value = modCols.reduce((s, c) => s + (c.amount || 0), 0);
+      return {
+        name: mod.name,
+        code: mod.code,
+        color: mod.color || '#d4af37',
+        value,
+        pct: grandTotal > 0 ? parseFloat((value / grandTotal * 100).toFixed(1)) : 0
+      };
+    });
+
+    const monthlyByCategory = MONTHS.map(m => {
+      const entry = { month: m };
+      modules.forEach(mod => {
+        const modMonthCols = collections.filter(c =>
+          c.module && getModuleId(c.module) === mod._id.toString() && c.month === m
+        );
+        entry[mod.code] = modMonthCols.reduce((s, c) => s + (c.amount || 0), 0);
+        entry[`${mod.code}_name`] = mod.name;
+        entry[`${mod.code}_color`] = mod.color || '#d4af37';
+      });
+      entry.total = modules.reduce((s, mod) => s + (entry[mod.code] || 0), 0);
+      return entry;
+    });
+
+    const sortedCats = [...categoryBreakdown].sort((a, b) => b.value - a.value);
+    const highest = sortedCats[0] || null;
+    const lowest = sortedCats.filter(c => c.value > 0).pop() || null;
+
+    res.json({
+      success: true,
+      data: {
+        selectedMonth: filterMonth || 'All',
+        categoryBreakdown,
+        monthlyByCategory,
+        grandTotal,
+        highest,
+        lowest,
+        modules: modules.map(m => ({ _id: m._id, name: m.name, code: m.code, color: m.color || '#d4af37' }))
+      }
+    });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
@@ -102,27 +230,69 @@ router.get('/category', protect, async (req, res) => {
 router.get('/rankings', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId } = req.query;
-    let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
+    let fyId = financialYear || 'all';
     const collections = await getModuleCollections(fyId, moduleId);
-    const currentFY = await FinancialYear.findById(fyId);
+    
+    let currentFY;
     let prevCollections = [];
-    if (currentFY) {
-      const prevFY = await FinancialYear.findOne({ startYear: currentFY.startYear - 1 });
-      if (prevFY) prevCollections = await getModuleCollections(prevFY._id, moduleId);
+    if (fyId === 'all') {
+      currentFY = {
+        _id: 'all',
+        year: 'All Years',
+        label: 'All Years'
+      };
+    } else {
+      const startYear = parseInt(fyId);
+      const endYear = startYear + 1;
+      currentFY = {
+        _id: fyId,
+        startYear,
+        endYear,
+        year: `${startYear}-${String(endYear).substring(2)}`,
+        label: `${startYear}-${String(endYear).substring(2)}`
+      };
+      const prevStartYear = startYear - 1;
+      prevCollections = await getModuleCollections(prevStartYear.toString(), moduleId);
+    }
+    if (!moduleId || moduleId === 'all') {
+      const modules = await Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 });
+      const rankingsList = modules.map(mod => {
+        const curr = collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const prev = prevCollections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const growth = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
+        return {
+          proId: mod._id.toString(),
+          name: mod.name,
+          total: curr,
+          prevTotal: prev,
+          growth: Math.round(growth * 100) / 100,
+          status: 'active',
+          isCategory: true
+        };
+      });
+
+      const categoryRankings = rankingsList
+        .sort((a, b) => b.total - a.total)
+        .map((r, idx) => ({ ...r, rank: idx + 1 }));
+
+      console.log('categoryRankings:', categoryRankings);
+
+      return res.json({ success: true, data: { rankings: categoryRankings, zeroPros: [], totalPros: modules.length } });
     }
 
     const proMap = {};
     for (const c of collections) {
-      const pid = c.pro.toString();
-      if (!proMap[pid]) proMap[pid] = { proId: pid, name: c.proName, total: 0 };
-      proMap[pid].total += c.totalAmount;
+      if (!c.pro) continue;
+      const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
+      if (!proMap[pid]) proMap[pid] = { proId: pid, name: c.proName || (c.pro.name || pid), total: 0 };
+      proMap[pid].total += (c.amount || 0);
     }
     const prevMap = {};
     for (const c of prevCollections) {
-      const pid = c.pro.toString();
+      if (!c.pro) continue;
+      const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (!prevMap[pid]) prevMap[pid] = 0;
-      prevMap[pid] += c.totalAmount;
+      prevMap[pid] += (c.amount || 0);
     }
 
     const proFilter = {};
@@ -135,14 +305,14 @@ router.get('/rankings', protect, async (req, res) => {
       .map(p => {
         const prev = prevMap[p.proId] || 0;
         const growth = prev > 0 ? ((p.total - prev) / prev * 100) : (p.total > 0 ? 100 : 0);
-        return { ...p, prevTotal: prev, growth: Math.round(growth * 100) / 100, status: proStatusMap[p.proId] || 'active' };
+        return { ...p, prevTotal: prev, growth: Math.round(growth * 100) / 100, status: proStatusMap[p.proId] || 'active', isCategory: false };
       })
       .sort((a, b) => b.total - a.total)
       .map((p, i) => ({ ...p, rank: i + 1 }));
 
     const contributingIds = new Set(Object.keys(proMap));
     const zeroPros = pros.filter(p => !contributingIds.has(p._id.toString()))
-      .map(p => ({ proId: p._id.toString(), name: p.name, total: 0, rank: null, status: p.status, growth: 0 }));
+      .map(p => ({ proId: p._id.toString(), name: p.name, total: 0, rank: null, status: p.status, growth: 0, isCategory: false }));
 
     res.json({ success: true, data: { rankings, zeroPros, totalPros: pros.length } });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -152,62 +322,99 @@ router.get('/rankings', protect, async (req, res) => {
 router.get('/pro/:proId', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId, month: filterMonth } = req.query;
-    let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
+    let fyId = financialYear || 'all';
 
-    const colFilter = { financialYear: fyId, pro: req.params.proId };
+    const colFilter = { pro: req.params.proId };
+    if (fyId !== 'all') {
+      const { startDate, endDate } = getFYDateRange(fyId);
+      colFilter.date = { $gte: startDate, $lte: endDate };
+    }
     if (moduleId) colFilter.module = moduleId;
-    // If a specific month is requested, scope collections to that month only
     if (filterMonth && MONTHS.includes(filterMonth)) colFilter.month = filterMonth;
 
     const [pro, collections] = await Promise.all([
       Pro.findById(req.params.proId).populate('module', 'name code color'),
-      Collection.find(colFilter).sort({ monthIndex: 1 })
+      Collection.find(colFilter).sort({ date: 1 })
     ]);
     if (!pro) return res.status(404).json({ success: false, message: 'PRO not found' });
 
-    const currentFY = await FinancialYear.findById(fyId);
+    let currentFY;
     let prevCollections = [];
-    if (currentFY) {
-      const prevFY = await FinancialYear.findOne({ startYear: currentFY.startYear - 1 });
-      if (prevFY) {
-        const prevFilter = { financialYear: prevFY._id, pro: req.params.proId };
-        if (moduleId) prevFilter.module = moduleId;
-        if (filterMonth && MONTHS.includes(filterMonth)) prevFilter.month = filterMonth;
-        prevCollections = await Collection.find(prevFilter).sort({ monthIndex: 1 });
+    let allPrevCollections = [];
+    let growth = 0;
+    let prevTotal = 0;
+
+    if (fyId === 'all') {
+      currentFY = {
+        _id: 'all',
+        year: 'All Years',
+        label: 'All Years'
+      };
+    } else {
+      const startYear = parseInt(fyId);
+      const endYear = startYear + 1;
+      currentFY = {
+        _id: fyId,
+        startYear,
+        endYear,
+        year: `${startYear}-${String(endYear).substring(2)}`,
+        label: `${startYear}-${String(endYear).substring(2)}`
+      };
+
+      const prevStartYear = startYear - 1;
+      const prevFYDateRange = getFYDateRange(prevStartYear.toString());
+      const prevFilter = { date: { $gte: prevFYDateRange.startDate, $lte: prevFYDateRange.endDate }, pro: req.params.proId };
+      if (moduleId) prevFilter.module = moduleId;
+      if (filterMonth && MONTHS.includes(filterMonth)) prevFilter.month = filterMonth;
+      prevCollections = await Collection.find(prevFilter).sort({ date: 1 });
+
+      prevTotal = prevCollections.reduce((s, c) => s + (c.amount || 0), 0);
+      const totalCol = collections.reduce((s, c) => s + (c.amount || 0), 0);
+      growth = prevTotal > 0 ? ((totalCol - prevTotal) / prevTotal * 100) : (totalCol > 0 ? 100 : 0);
+
+      if (filterMonth) {
+        const prevAllFilter = { date: { $gte: prevFYDateRange.startDate, $lte: prevFYDateRange.endDate }, pro: req.params.proId };
+        if (moduleId) prevAllFilter.module = moduleId;
+        allPrevCollections = await Collection.find(prevAllFilter).sort({ date: 1 });
+      } else {
+        allPrevCollections = prevCollections;
       }
     }
 
-    const total = collections.reduce((s, c) => s + c.totalAmount, 0);
-    const prevTotal = prevCollections.reduce((s, c) => s + c.totalAmount, 0);
-    const growth = prevTotal > 0 ? ((total - prevTotal) / prevTotal * 100) : (total > 0 ? 100 : 0);
-
-    // Full monthly breakdown — always across all 12 months (needed for charts)
-    // But only show actual data from the scoped collections
-    const allColFilter = { financialYear: fyId, pro: req.params.proId };
+    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const allColFilter = { pro: req.params.proId };
+    if (fyId !== 'all') {
+      const { startDate, endDate } = getFYDateRange(fyId);
+      allColFilter.date = { $gte: startDate, $lte: endDate };
+    }
     if (moduleId) allColFilter.module = moduleId;
-    const allPrevFilter = { pro: req.params.proId };
-    if (moduleId) allPrevFilter.module = moduleId;
 
     let allCollections = collections;
-    let allPrevCollections = prevCollections;
+    let allPrevCollectionsFinal = allPrevCollections;
 
-    // If month filter applied, fetch full year collections separately for chart breakdown
     if (filterMonth) {
-      allCollections = await Collection.find(allColFilter).sort({ monthIndex: 1 });
-      if (currentFY) {
-        const prevFY = await FinancialYear.findOne({ startYear: currentFY.startYear - 1 });
-        if (prevFY) {
-          allPrevFilter.financialYear = prevFY._id;
-          allPrevCollections = await Collection.find(allPrevFilter).sort({ monthIndex: 1 });
-        }
+      allCollections = await Collection.find(allColFilter).sort({ date: 1 });
+      if (fyId !== 'all') {
+        const prevStartYear = currentFY.startYear - 1;
+        const prevFYDateRange = getFYDateRange(prevStartYear.toString());
+        const prevAllFilter = { date: { $gte: prevFYDateRange.startDate, $lte: prevFYDateRange.endDate }, pro: req.params.proId };
+        if (moduleId) prevAllFilter.module = moduleId;
+        allPrevCollectionsFinal = await Collection.find(prevAllFilter).sort({ date: 1 });
       }
     }
 
     const monthlyBreakdown = MONTHS.map((month, idx) => {
-      const curr = allCollections.find(c => c.month === month);
-      const prev = allPrevCollections.find(c => c.month === month);
-      return { month, index: idx, current: curr?.totalAmount || 0, previous: prev?.totalAmount || 0, amount: curr?.amount || 0 };
+      const currCols = allCollections.filter(c => c.month === month);
+      const prevCols = allPrevCollections.filter(c => c.month === month);
+      const currentSum = currCols.reduce((sum, c) => sum + (c.amount || 0), 0);
+      const previousSum = prevCols.reduce((sum, c) => sum + (c.amount || 0), 0);
+      return {
+        month,
+        index: idx,
+        current: currentSum,
+        previous: previousSum,
+        amount: currentSum
+      };
     });
 
     const amounts = monthlyBreakdown.map(m => m.current);
@@ -235,41 +442,89 @@ router.get('/comparison', protect, async (req, res) => {
   try {
     const { year1, year2, module: moduleId } = req.query;
     if (!year1 || !year2) return res.status(400).json({ success: false, message: 'year1 and year2 required' });
-    const [fy1, fy2, cols1, cols2] = await Promise.all([
-      FinancialYear.findById(year1), FinancialYear.findById(year2),
-      getModuleCollections(year1, moduleId), getModuleCollections(year2, moduleId)
+
+    const startYear1 = parseInt(year1);
+    const endYear1 = startYear1 + 1;
+    const fy1 = {
+      _id: year1,
+      year: `${startYear1}-${String(endYear1).substring(2)}`,
+      label: `FY ${startYear1}-${String(endYear1).substring(2)}`
+    };
+
+    const startYear2 = parseInt(year2);
+    const endYear2 = startYear2 + 1;
+    const fy2 = {
+      _id: year2,
+      year: `${startYear2}-${String(endYear2).substring(2)}`,
+      label: `FY ${startYear2}-${String(endYear2).substring(2)}`
+    };
+
+    const [cols1, cols2] = await Promise.all([
+      getModuleCollections(year1, moduleId),
+      getModuleCollections(year2, moduleId)
     ]);
 
-    // Monthly breakdown per PRO for each year
-    const proIds = [...new Set([...cols1, ...cols2].map(c => c.pro.toString()))];
+    const proIds = [...new Set([...cols1, ...cols2].filter(c => c.pro).map(c => getProId(c.pro)))];
     const pros = await Pro.find({ _id: { $in: proIds } });
     const proNameMap = {};
     pros.forEach(p => proNameMap[p._id.toString()] = p.name);
 
-    const monthly1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.month === m).reduce((s, c) => s + c.totalAmount, 0) }));
-    const monthly2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.month === m).reduce((s, c) => s + c.totalAmount, 0) }));
+    const monthly1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
+    const monthly2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
 
-    // Per-PRO monthly comparison
     const proMonthlyComparison = proIds.map(pid => {
       const name = proNameMap[pid] || pid;
-      const yearData1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.pro.toString() === pid && c.month === m).reduce((s, c) => s + c.totalAmount, 0) }));
-      const yearData2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.pro.toString() === pid && c.month === m).reduce((s, c) => s + c.totalAmount, 0) }));
+      const yearData1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
+      const yearData2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
       const t1 = yearData1.reduce((s, m) => s + m.total, 0);
       const t2 = yearData2.reduce((s, m) => s + m.total, 0);
       const growth = t1 > 0 ? ((t2 - t1) / t1 * 100) : (t2 > 0 ? 100 : 0);
       return { proId: pid, name, year1Monthly: yearData1, year2Monthly: yearData2, total1: t1, total2: t2, growth: Math.round(growth * 100) / 100 };
     });
 
-    const total1 = cols1.reduce((s, c) => s + c.totalAmount, 0);
-    const total2 = cols2.reduce((s, c) => s + c.totalAmount, 0);
+    const total1 = cols1.reduce((s, c) => s + (c.amount || 0), 0);
+    const total2 = cols2.reduce((s, c) => s + (c.amount || 0), 0);
     const diff = total2 - total1;
     const growthPct = total1 > 0 ? (diff / total1 * 100) : 0;
+
+    let categoryComparison = null;
+    if (!moduleId || moduleId === 'all') {
+      const modules = await Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 });
+      const categoryComparisonList = modules.map(mod => {
+        const val1 = cols1.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const val2 = cols2.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const diff = val2 - val1;
+        const growthPct = val1 > 0 ? ((val2 - val1) / val1 * 100) : (val2 > 0 ? 100 : 0);
+        const contributionPct = total2 > 0 ? (val2 / total2 * 100) : 0;
+        return {
+          name: mod.name,
+          code: mod.code,
+          color: mod.color || '#d4af37',
+          year1Val: val1,
+          year2Val: val2,
+          diff,
+          growthPct: Math.round(growthPct * 100) / 100,
+          contributionPct: Math.round(contributionPct * 100) / 100
+        };
+      });
+
+      const sortedCats = [...categoryComparisonList].sort((a, b) => b.year2Val - a.year2Val);
+      const highest = sortedCats[0]?.year2Val > 0 ? sortedCats[0] : null;
+      const lowest = sortedCats.filter(c => c.year2Val > 0).pop() || null;
+
+      categoryComparison = {
+        categories: categoryComparisonList,
+        highest,
+        lowest
+      };
+    }
 
     res.json({ success: true, data: {
       year1: { label: fy1?.label, total: total1, monthly: monthly1 },
       year2: { label: fy2?.label, total: total2, monthly: monthly2 },
       diff, growthPct: Math.round(growthPct * 100) / 100,
-      proMonthlyComparison
+      proMonthlyComparison,
+      categoryComparison
     }});
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
@@ -278,21 +533,40 @@ router.get('/comparison', protect, async (req, res) => {
 router.get('/insights', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId } = req.query;
-    let fyId = financialYear;
-    if (!fyId) { const activeFY = await FinancialYear.findOne({ isActive: true }); fyId = activeFY?._id; }
+    let fyId = financialYear || 'all';
 
     const proFilter = {};
     if (moduleId) proFilter.module = moduleId;
-    const [collections, pros, currentFY] = await Promise.all([
-      getModuleCollections(fyId, moduleId), Pro.find(proFilter), FinancialYear.findById(fyId)
+    const [collections, pros] = await Promise.all([
+      getModuleCollections(fyId, moduleId), Pro.find(proFilter)
     ]);
 
-    const total = collections.reduce((s, c) => s + c.totalAmount, 0);
+    let currentFY;
+    if (fyId === 'all') {
+      currentFY = {
+        _id: 'all',
+        label: 'All Years',
+        year: 'All Years'
+      };
+    } else {
+      const startYear = parseInt(fyId);
+      const endYear = startYear + 1;
+      currentFY = {
+        _id: fyId,
+        label: `${startYear}-${String(endYear).substring(2)}`,
+        year: `${startYear}-${String(endYear).substring(2)}`,
+        startYear,
+        endYear
+      };
+    }
+
+    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
     const proMap = {};
     for (const c of collections) {
-      const pid = c.pro.toString();
+      if (!c.pro) continue;
+      const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (!proMap[pid]) proMap[pid] = { name: c.proName, total: 0 };
-      proMap[pid].total += c.totalAmount;
+      proMap[pid].total += (c.amount || 0);
     }
     const sorted = Object.values(proMap).sort((a, b) => b.total - a.total);
     const topPerformer = sorted[0];
@@ -300,7 +574,7 @@ router.get('/insights', protect, async (req, res) => {
     const contributingIds = new Set(Object.keys(proMap));
     const zeroPros = activePros.filter(p => !contributingIds.has(p._id.toString()));
 
-    const monthlyTotals = MONTHS.map(m => collections.filter(c => c.month === m).reduce((s, c) => s + c.totalAmount, 0));
+    const monthlyTotals = MONTHS.map(m => collections.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0));
     const nonZeroMonths = monthlyTotals.filter(t => t > 0);
     const avg = nonZeroMonths.reduce((s, t) => s + t, 0) / (nonZeroMonths.length || 1);
     const aboveAvg = nonZeroMonths.filter(t => t > avg).length;
@@ -331,24 +605,33 @@ router.get('/insights', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 
-// GET /api/analytics/monthly-comparison — detailed comparison, rankings, growth and trends
+// GET /api/analytics/monthly-comparison
 router.get('/monthly-comparison', protect, async (req, res) => {
   try {
     const { financialYear, module: moduleId, month: selectedMonth } = req.query;
     
-    let fyId = financialYear;
-    if (!fyId) {
-      const activeFY = await FinancialYear.findOne({ isActive: true });
-      fyId = activeFY?._id;
-    }
-    if (!fyId) return res.status(400).json({ success: false, message: 'Financial year not found' });
+    let fyId = financialYear || 'all';
 
-    const currentFY = await FinancialYear.findById(fyId);
+    let currentFY;
+    if (fyId === 'all') {
+      currentFY = {
+        _id: 'all',
+        label: 'All Years',
+        year: 'All Years'
+      };
+    } else {
+      const startYear = parseInt(fyId);
+      const endYear = startYear + 1;
+      currentFY = {
+        _id: fyId,
+        label: `${startYear}-${String(endYear).substring(2)}`,
+        year: `${startYear}-${String(endYear).substring(2)}`,
+        startYear,
+        endYear
+      };
+    }
     
-    const query = { financialYear: fyId };
-    if (moduleId) query.module = moduleId;
-    
-    const collections = await Collection.find(query);
+    const collections = await getModuleCollections(fyId, moduleId);
     
     const proFilter = {};
     if (moduleId) proFilter.module = moduleId;
@@ -369,9 +652,10 @@ router.get('/monthly-comparison', protect, async (req, res) => {
     });
     
     collections.forEach(c => {
-      const pid = c.pro.toString();
+      if (!c.pro) return;
+      const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (proMap[pid]) {
-        proMap[pid].monthlyAmounts[c.month] = c.totalAmount;
+        proMap[pid].monthlyAmounts[c.month] = (c.amount || 0);
       }
     });
 
@@ -424,14 +708,13 @@ router.get('/monthly-comparison', protect, async (req, res) => {
       prevMonth = MONTHS[monthIdx - 1];
       prevMonthTotal = proList.reduce((s, p) => s + (p.monthlyAmounts[prevMonth] || 0), 0);
     } else {
-      if (currentFY) {
-        const prevFY = await FinancialYear.findOne({ startYear: currentFY.startYear - 1 });
-        if (prevFY) {
-          const prevQuery = { financialYear: prevFY._id, month: 'March' };
-          if (moduleId) prevQuery.module = moduleId;
-          const prevCols = await Collection.find(prevQuery);
-          prevMonthTotal = prevCols.reduce((s, c) => s + c.totalAmount, 0);
-        }
+      if (currentFY && currentFY._id !== 'all') {
+        const prevStartYear = currentFY.startYear - 1;
+        const prevFYDateRange = getFYDateRange(prevStartYear.toString());
+        const prevQuery = { date: { $gte: prevFYDateRange.startDate, $lte: prevFYDateRange.endDate }, month: 'March' };
+        if (moduleId) prevQuery.module = moduleId;
+        const prevCols = await Collection.find(prevQuery);
+        prevMonthTotal = prevCols.reduce((s, c) => s + (c.amount || 0), 0);
       }
       prevMonth = 'March (Prev FY)';
     }

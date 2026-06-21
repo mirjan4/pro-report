@@ -43,12 +43,20 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
     const { name, description, icon, color, isActive, sortOrder } = req.body;
+    const existing = await Module.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Module not found' });
+    
+    if (['pro', 'ofc', 'glb'].includes(existing.code)) {
+      if (isActive === false || isActive === 'false') {
+        return res.status(400).json({ success: false, message: 'Core collection categories cannot be disabled' });
+      }
+    }
+
     const mod = await Module.findByIdAndUpdate(
       req.params.id,
       { name, description, icon, color, isActive, sortOrder },
       { new: true, runValidators: true }
     );
-    if (!mod) return res.status(404).json({ success: false, message: 'Module not found' });
     res.json({ success: true, data: mod });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -60,6 +68,11 @@ router.patch('/:id/toggle', protect, adminOnly, async (req, res) => {
   try {
     const mod = await Module.findById(req.params.id);
     if (!mod) return res.status(404).json({ success: false, message: 'Module not found' });
+    
+    if (['pro', 'ofc', 'glb'].includes(mod.code)) {
+      return res.status(400).json({ success: false, message: 'Core collection categories cannot be disabled' });
+    }
+
     mod.isActive = !mod.isActive;
     await mod.save();
     res.json({ success: true, data: mod });
@@ -71,6 +84,13 @@ router.patch('/:id/toggle', protect, adminOnly, async (req, res) => {
 // DELETE /api/modules/:id — delete module (admin only)
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
+    const mod = await Module.findById(req.params.id);
+    if (!mod) return res.status(404).json({ success: false, message: 'Module not found' });
+
+    if (['pro', 'ofc', 'glb'].includes(mod.code)) {
+      return res.status(400).json({ success: false, message: 'Core collection categories cannot be deleted' });
+    }
+
     const Collection = require('../models/Collection');
     const count = await Collection.countDocuments({ module: req.params.id });
     if (count > 0) return res.status(400).json({ success: false, message: `Cannot delete: ${count} collection entries exist for this module` });

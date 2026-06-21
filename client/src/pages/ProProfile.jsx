@@ -160,7 +160,7 @@ const ProProfile = () => {
   // ---- Dropdown Options ----
   const fyOptions = financialYears.map(fy => ({ value: fy._id, label: fy.label }));
   const monthOptions = [
-    { value: 'all', label: 'Full Year' },
+    { value: 'all', label: 'All Months' },
     ...MONTHS.map(m => ({ value: m, label: m }))
   ];
 
@@ -351,7 +351,7 @@ const ProProfile = () => {
   // ---- Active filter label ----
   const activeFYLabel = financialYears.find(y => y._id === filterFY)?.label || selectedFY?.label || '';
   const activeFilterLabel = filterMonth === 'all'
-    ? `Full Year · ${activeFYLabel}`
+    ? `All Months · ${activeFYLabel}`
     : `${filterMonth} · ${activeFYLabel}`;
 
   if (loading) {
@@ -410,7 +410,7 @@ const ProProfile = () => {
             }`}
           >
             <Sparkles className="w-3 h-3" />
-            Full Year
+            All Months
           </button>
 
           {/* Divider */}
@@ -492,7 +492,7 @@ const ProProfile = () => {
           </div>
           <div className="pt-4 border-t border-white/5 flex justify-between text-xs text-gray-400">
             <span>Selected Period:</span>
-            <span className="font-bold text-white">{filterMonth !== 'all' ? filterMonth : 'Full Year'}</span>
+            <span className="font-bold text-white">{filterMonth !== 'all' ? filterMonth : 'All Months'}</span>
           </div>
         </div>
 

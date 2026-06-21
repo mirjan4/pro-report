@@ -26,7 +26,7 @@ const Insights = () => {
       if (!selectedFY?._id) return;
       setLoading(true);
       try {
-        const modParam = selectedModule ? `&module=${selectedModule._id}` : '';
+        const modParam = selectedModule && selectedModule.code !== 'all' ? `&module=${selectedModule._id}` : '';
         const [insightsRes, rankingsRes] = await Promise.all([
           client.get(`/api/analytics/insights?financialYear=${selectedFY._id}${modParam}`),
           client.get(`/api/analytics/rankings?financialYear=${selectedFY._id}${modParam}`)

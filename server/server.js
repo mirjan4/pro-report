@@ -26,6 +26,10 @@ app.use('/api/financial-years', require('./routes/financialYears'));
 app.use('/api/collections', require('./routes/collections'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/sponsors', require('./routes/sponsors'));
+app.use('/api/collection-heads', require('./routes/collectionHeads'));
+app.use('/api/distribution-heads', require('./routes/distributionHeads'));
+app.use('/api/distributions', require('./routes/distributions'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
@@ -56,10 +60,72 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ success: false, message: err.message || 'Server Error' });
 });
 
+// Migration check function
+async function checkMigration() {
+  try {
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    const hasCollections = collections.some(col => col.name === 'collections');
+    if (hasCollections) {
+      const coll = db.collection('collections');
+      const indexes = await coll.indexes();
+      const targetIndexName = 'module_1_financialYear_1_month_1_pro_1';
+      const indexExists = indexes.some(idx => idx.name === targetIndexName);
+      if (indexExists) {
+        console.warn(`⚠️ WARNING: Legacy unique index "${targetIndexName}" still exists in the database. This index is deprecated and will cause duplicate key errors on collections. Please drop it.`);
+      }
+    }
+  } catch (err) {
+    console.error('Error running migration startup check:', err);
+  }
+}
+
+// Seed default Additional Collection Heads if none exist
+async function seedCollectionHeads() {
+  try {
+    const CollectionHead = require('./models/CollectionHead');
+    const count = await CollectionHead.countDocuments();
+    if (count === 0) {
+      console.log('🌱 Seeding default Additional Collection Heads...');
+      await CollectionHead.insertMany([
+        { name: 'Markaz', isActive: true },
+        { name: 'Orphanage', isActive: true },
+        { name: 'Other', isActive: true }
+      ]);
+      console.log('✅ Default Additional Collection Heads seeded successfully');
+    }
+  } catch (err) {
+    console.error('Failed to seed default Additional Collection Heads:', err);
+  }
+}
+
+// Seed default Distribution Heads if none exist
+async function seedDistributionHeads() {
+  try {
+    const DistributionHead = require('./models/DistributionHead');
+    const count = await DistributionHead.countDocuments();
+    if (count === 0) {
+      console.log('🌱 Seeding default Distribution Heads...');
+      const defaults = [
+        'Food', 'Rice', 'Eid Food Kit', 'Iftar', 'Orphanage', 
+        'Green Valley', 'Peralassery', 'Madaniyam', 'Darul Rashad', 
+        'Kitchen Work', 'Kathmul Bukhari'
+      ];
+      await DistributionHead.insertMany(defaults.map(name => ({ name, isActive: true })));
+      console.log('✅ Default Distribution Heads seeded successfully');
+    }
+  } catch (err) {
+    console.error('Failed to seed default Distribution Heads:', err);
+  }
+}
+
 // DB Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅ MongoDB Connected');
+    await checkMigration();
+    await seedCollectionHeads();
+    await seedDistributionHeads();
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   })

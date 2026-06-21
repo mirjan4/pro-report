@@ -21,7 +21,9 @@ import {
   ChevronUp,
   LineChart,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  HeartHandshake,
+  Share2
 } from 'lucide-react';
 
 // Map module icon code to lucide icon component
@@ -46,6 +48,7 @@ const Navbar = () => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   const [adminSectionExpanded, setAdminSectionExpanded] = useState(false);
+  const [isAdminAnimating, setIsAdminAnimating] = useState(false);
   const [analyticsExpanded, setAnalyticsExpanded] = useState(() => {
     const saved = localStorage.getItem('sidebarAnalyticsExpanded');
     return saved ? saved === 'true' : true;
@@ -98,8 +101,9 @@ const Navbar = () => {
   const adminItems = [
     { path: '/pros', label: 'PRO Management', icon: Users },
     { path: '/collections', label: 'Collection Entry', icon: Layers },
-    { path: '/financial-years', label: 'FY Management', icon: Calendar },
-    { path: '/modules', label: 'Module Management', icon: Package },
+    { path: '/sponsors', label: 'Sponsor Tracking', icon: HeartHandshake },
+    { path: '/distributions', label: 'Distribution Management', icon: Share2 },
+    { path: '/modules', label: 'Categories & Heads', icon: Package },
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -127,6 +131,9 @@ const Navbar = () => {
     ));
   };
 
+  console.log("Collection Filter Modules", modules);
+  console.log("Selected Module", selectedModule);
+
   return (
     <>
       {/* Mobile Header */}
@@ -147,7 +154,7 @@ const Navbar = () => {
             >
               {financialYears.map((fy) => (
                 <option key={fy._id} value={fy._id}>
-                  {fy.year} {fy.isActive ? '(Active)' : ''}
+                  {fy.year}
                 </option>
               ))}
             </select>
@@ -184,7 +191,7 @@ const Navbar = () => {
           </div>
 
           {/* User Profile Summary - Collapsible */}
-          <div className="p-4 border-b border-white/5 bg-white/[0.01]">
+          <div className="p-4 border-b border-white/5 bg-white/[0.01] relative z-30">
             <button
               onClick={() => setAdminSectionExpanded(prev => !prev)}
               className={`w-full flex items-center bg-[#0d1b2a]/60 border border-white/10 hover:border-gold/30 rounded-xl px-3 py-2.5 text-xs font-bold text-gold transition-colors duration-200 cursor-pointer ${isCollapsed ? 'justify-center' : 'justify-between'}`}
@@ -207,7 +214,11 @@ const Navbar = () => {
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
-                  className={`overflow-hidden flex flex-col ${isCollapsed ? 'items-center space-y-4 pt-4' : 'space-y-4 pt-4'}`}
+                  onAnimationStart={() => setIsAdminAnimating(true)}
+                  onAnimationComplete={() => setIsAdminAnimating(false)}
+                  className={`flex flex-col ${isCollapsed ? 'items-center space-y-4 pt-4' : 'space-y-4 pt-4'} ${
+                    isAdminAnimating ? 'overflow-hidden' : 'overflow-visible'
+                  }`}
                 >
                   {/* User Profile Details */}
                   <div className="flex items-center space-x-3 w-full">
@@ -227,7 +238,7 @@ const Navbar = () => {
                     <div className="w-full">
                       {!isCollapsed ? (
                         <div className="animate-fadeIn">
-                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1.5">Reporting Year</label>
+                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1.5">Report Period</label>
                           <select
                             value={selectedFY?._id || ''}
                             onChange={(e) => {
@@ -238,14 +249,14 @@ const Navbar = () => {
                           >
                             {financialYears.map((fy) => (
                               <option key={fy._id} value={fy._id}>
-                                {fy.year} {fy.isActive ? '(Active)' : ''}
+                                {fy.year}
                               </option>
                             ))}
                           </select>
                         </div>
                       ) : (
-                        <div className="p-2 bg-white/5 border border-white/10 rounded-xl text-center text-xs text-gold font-bold" title={`Reporting Year: ${selectedFY?.year || 'N/A'}`}>
-                          {selectedFY?.year ? selectedFY.year.split('-')[0] : 'FY'}
+                        <div className="p-2 bg-white/5 border border-white/10 rounded-xl text-center text-xs text-gold font-bold" title={`Report Period: ${selectedFY?.year || 'N/A'}`}>
+                          {selectedFY?._id === 'all' ? 'All' : (selectedFY?.year ? selectedFY.year.split('-')[0] : 'FY')}
                         </div>
                       )}
                     </div>
@@ -253,37 +264,38 @@ const Navbar = () => {
 
                   {/* Module Selector */}
                   {modules.length > 0 && (
-                    <div className="w-full">
-                      {!isCollapsed ? (
-                        <div className="animate-fadeIn">
-                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1.5">Active Module</label>
-                          <div className="relative">
-                            <button
-                              onClick={() => setModuleDropOpen(o => !o)}
-                              className="w-full flex items-center justify-between gap-2 bg-[#0d1b2a]/60 border border-white/10 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none hover:border-white/20 transition-colors duration-200"
-                              style={{ color: selectedModule?.color || '#d4af37' }}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: selectedModule?.color || '#d4af37' }} />
-                                <span className="truncate">{selectedModule?.name || 'Select Module'}</span>
-                              </div>
-                              <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${moduleDropOpen ? 'rotate-180' : ''}`} />
-                            </button>
-                            {moduleDropOpen && (
-                              <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-[#0d1b2a] border border-white/10 rounded-xl overflow-hidden shadow-xl shadow-black/40">
-                                {modules.map((mod) => (
-                                  <button
-                                    key={mod._id}
-                                    onClick={() => { setSelectedModule(mod); setModuleDropOpen(false); }}
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left hover:bg-white/5 transition-colors duration-150 ${selectedModule?._id === mod._id ? 'bg-white/5' : ''}`}
-                                  >
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: mod.color }} />
-                                    <div className="min-w-0">
-                                      <div className="font-semibold text-white truncate">{mod.name}</div>
-                                      {mod.description && <div className="text-[10px] text-gray-500 truncate">{mod.description}</div>}
-                                    </div>
-                                    {selectedModule?._id === mod._id && (
-                                      <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: mod.color, background: mod.color + '22' }}>Active</span>
+                    <>
+                      <div className="w-full">
+                        {!isCollapsed ? (
+                          <div className="animate-fadeIn">
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1.5">Collection Filter</label>
+                            <div className="relative">
+                              <button
+                                onClick={() => setModuleDropOpen(o => !o)}
+                                className="w-full flex items-center justify-between gap-2 bg-[#0d1b2a]/60 border border-white/10 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none hover:border-white/20 transition-colors duration-200"
+                                style={{ color: selectedModule?.color || '#d4af37' }}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: selectedModule?.color || '#d4af37' }} />
+                                  <span className="truncate">{selectedModule?.name || 'All Collections'}</span>
+                                </div>
+                                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${moduleDropOpen ? 'rotate-180' : ''}`} />
+                              </button>
+                              {moduleDropOpen && (
+                                <div className="absolute top-full left-0 right-0 mt-1 z-[9999] bg-[#0d1b2a] border border-white/10 rounded-xl max-h-[250px] overflow-y-auto shadow-xl shadow-black/40">
+                                  {modules.map((mod) => (
+                                    <button
+                                      key={mod._id}
+                                      onClick={() => { setSelectedModule(mod); setModuleDropOpen(false); }}
+                                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left hover:bg-white/5 transition-colors duration-150 ${selectedModule?._id === mod._id ? 'bg-white/5' : ''}`}
+                                    >
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: mod.color }} />
+                                      <div className="min-w-0">
+                                        <div className="font-semibold text-white truncate">{mod.name}</div>
+                                        {mod.description && <div className="text-[10px] text-gray-500 truncate">{mod.description}</div>}
+                                      </div>
+                                      {selectedModule?._id === mod._id && (
+                                        <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: mod.color, background: mod.color + '22' }}>Selected</span>
                                     )}
                                   </button>
                                 ))}
@@ -296,12 +308,18 @@ const Navbar = () => {
                           <span
                             className="w-3.5 h-3.5 rounded-full ring-2 ring-white/10 cursor-pointer"
                             style={{ background: selectedModule?.color || '#d4af37' }}
-                            title={`Active Module: ${selectedModule?.name || 'N/A'}`}
+                            title={`Collection Filter: ${selectedModule?.name || 'N/A'}`}
                           />
                         </div>
                       )}
                     </div>
-                  )}
+                    {!isCollapsed && (
+                      <div className="text-[10px] text-gray-600 mt-1 px-3">
+                        Loaded Categories: {modules.length}
+                      </div>
+                    )}
+                  </>
+                )}
                 </motion.div>
               )}
             </AnimatePresence>

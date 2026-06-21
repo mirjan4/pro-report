@@ -3,17 +3,34 @@ import client from '../api/client';
 
 const AppContext = createContext(null);
 
+const allCollectionsPseudo = {
+  _id: 'all',
+  name: 'All Collections',
+  code: 'all',
+  color: '#d4af37',
+  description: 'Aggregated view of all collections',
+  isActive: true
+};
+
+const allYearsPseudo = {
+  _id: 'all',
+  year: 'All Years',
+  label: 'All Years',
+  isActive: false
+};
+
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('user');
     return saved ? JSON.parse(saved) : null;
   });
   const [token, setToken] = useState(() => localStorage.getItem('token'));
-  const [financialYears, setFinancialYears] = useState([]);
-  const [selectedFY, setSelectedFY] = useState(null);
+  const [financialYears, setFinancialYears] = useState([allYearsPseudo]);
+  const [selectedFY, setSelectedFY] = useState(allYearsPseudo);
   const [pros, setPros] = useState([]);
-  const [modules, setModules] = useState([]);
-  const [selectedModule, setSelectedModule] = useState(null);
+  const [modules, setModules] = useState([allCollectionsPseudo]);
+  const [selectedModule, setSelectedModule] = useState(allCollectionsPseudo);
+  const [collectionHeads, setCollectionHeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,17 +55,19 @@ export const AppProvider = ({ children }) => {
 
   const loadMetadata = async () => {
     try {
-      const [fyRes, prosRes, modRes] = await Promise.all([
-        client.get('/api/financial-years'),
+      const [fyRes, prosRes, modRes, headsRes] = await Promise.all([
+        client.get('/api/financial-years?includeArchived=true'),
         client.get('/api/pros'),
-        client.get('/api/modules')
+        client.get('/api/modules'),
+        client.get('/api/collection-heads')
       ]);
 
       if (fyRes.data.success) {
-        setFinancialYears(fyRes.data.data);
-        const active = fyRes.data.data.find(fy => fy.isActive);
-        if (active) setSelectedFY(active);
-        else if (fyRes.data.data.length > 0) setSelectedFY(fyRes.data.data[0]);
+        const fyList = [allYearsPseudo, ...fyRes.data.data.map(fy => ({ ...fy, label: fy.year }))];
+        setFinancialYears(fyList);
+        const savedFYId = localStorage.getItem('selectedFYId');
+        const savedFY = fyList.find(fy => fy._id === savedFYId);
+        setSelectedFY(savedFY || allYearsPseudo);
       }
 
       if (prosRes.data.success) {
@@ -56,23 +75,41 @@ export const AppProvider = ({ children }) => {
       }
 
       if (modRes.data.success) {
-        const activeModules = modRes.data.data.filter(m => m.isActive);
-        setModules(activeModules);
-        // Default to PRO module, or first active module
+        const activeModules = modRes.data.data.filter(m => m.isActive || ['pro', 'ofc', 'glb'].includes(m.code));
+        const modulesList = [allCollectionsPseudo, ...activeModules];
+        setModules(modulesList);
+        // Default to saved module, or "All Collections"
         const savedModuleId = localStorage.getItem('selectedModuleId');
-        const savedModule = activeModules.find(m => m._id === savedModuleId);
-        const proMod = activeModules.find(m => m.code === 'pro');
-        setSelectedModule(savedModule || proMod || activeModules[0] || null);
+        const savedModule = modulesList.find(m => m._id === savedModuleId);
+        setSelectedModule(savedModule || allCollectionsPseudo);
+      }
+
+      if (headsRes && headsRes.data.success) {
+        setCollectionHeads(headsRes.data.data);
       }
     } catch (err) {
       console.error('Failed to load metadata', err);
     }
   };
 
+  const handleSetSelectedFY = (fy) => {
+    const target = fy || allYearsPseudo;
+    setSelectedFY(target);
+    if (target && target._id !== 'all') {
+      localStorage.setItem('selectedFYId', target._id);
+    } else {
+      localStorage.removeItem('selectedFYId');
+    }
+  };
+
   const handleSetSelectedModule = (mod) => {
-    setSelectedModule(mod);
-    if (mod) localStorage.setItem('selectedModuleId', mod._id);
-    else localStorage.removeItem('selectedModuleId');
+    const target = mod || allCollectionsPseudo;
+    setSelectedModule(target);
+    if (target && target.code !== 'all') {
+      localStorage.setItem('selectedModuleId', target._id);
+    } else {
+      localStorage.removeItem('selectedModuleId');
+    }
   };
 
   const login = async (username, password) => {
@@ -98,14 +135,15 @@ export const AppProvider = ({ children }) => {
   const logout = () => {
     setToken(null);
     setUser(null);
-    setFinancialYears([]);
-    setSelectedFY(null);
+    setFinancialYears([allYearsPseudo]);
+    setSelectedFY(allYearsPseudo);
     setPros([]);
-    setModules([]);
-    setSelectedModule(null);
+    setModules([allCollectionsPseudo]);
+    setSelectedModule(allCollectionsPseudo);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('selectedModuleId');
+    localStorage.removeItem('selectedFYId');
   };
 
   return (
@@ -115,7 +153,7 @@ export const AppProvider = ({ children }) => {
         token,
         financialYears,
         selectedFY,
-        setSelectedFY,
+        setSelectedFY: handleSetSelectedFY,
         pros,
         setPros,
         setFinancialYears,
@@ -123,6 +161,8 @@ export const AppProvider = ({ children }) => {
         setModules,
         selectedModule,
         setSelectedModule: handleSetSelectedModule,
+        collectionHeads,
+        setCollectionHeads,
         loading,
         login,
         logout,

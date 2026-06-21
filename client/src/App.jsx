@@ -11,10 +11,12 @@ import MonthlyComparison from './pages/MonthlyComparison';
 import Insights from './pages/Insights';
 import ProManagement from './pages/ProManagement';
 import CollectionEntry from './pages/CollectionEntry';
+import SponsorEntry from './pages/SponsorEntry';
 import FinancialYearManagement from './pages/FinancialYearManagement';
 import ProProfile from './pages/ProProfile';
 import Reports from './pages/Reports';
 import ModuleManagement from './pages/ModuleManagement';
+import DistributionEntry from './pages/DistributionEntry';
 
 const PrivateLayout = ({ children }) => {
   const { token, loading } = useApp();
@@ -83,6 +85,8 @@ const App = () => {
           {/* Admin-Only Routes */}
           <Route path="/pros" element={<PrivateLayout><AdminRoute><ProManagement /></AdminRoute></PrivateLayout>} />
           <Route path="/collections" element={<PrivateLayout><AdminRoute><CollectionEntry /></AdminRoute></PrivateLayout>} />
+          <Route path="/sponsors" element={<PrivateLayout><AdminRoute><SponsorEntry /></AdminRoute></PrivateLayout>} />
+          <Route path="/distributions" element={<PrivateLayout><AdminRoute><DistributionEntry /></AdminRoute></PrivateLayout>} />
           <Route path="/financial-years" element={<PrivateLayout><AdminRoute><FinancialYearManagement /></AdminRoute></PrivateLayout>} />
           <Route path="/modules" element={<PrivateLayout><AdminRoute><ModuleManagement /></AdminRoute></PrivateLayout>} />
 

@@ -127,7 +127,8 @@ const ProManagement = () => {
     setBulkStep(1);
     setBulkRawText('');
     setBulkParsedPros([]);
-    setBulkDefaultModuleId(selectedModule?._id || modules[0]?._id || '');
+    const firstRealModule = modules.find(m => m.code !== 'all');
+    setBulkDefaultModuleId((selectedModule && selectedModule.code !== 'all') ? selectedModule._id : (firstRealModule?._id || ''));
     setBulkErrors([]);
     setBulkSuccessCount(0);
     setBulkModalOpen(true);
@@ -213,7 +214,7 @@ const ProManagement = () => {
   const fetchPros = async () => {
     setLoading(true);
     try {
-      const params = selectedModule ? `?module=${selectedModule._id}` : '';
+      const params = selectedModule && selectedModule.code !== 'all' ? `?module=${selectedModule._id}` : '';
       const res = await client.get(`/api/pros${params}`);
       if (res.data.success) setPros(res.data.data);
     } catch (err) {
@@ -234,7 +235,8 @@ const ProManagement = () => {
     setEmail('');
     setStatus('active');
     setNotes('');
-    setModuleId(selectedModule?._id || modules[0]?._id || '');
+    const defaultModule = modules.find(m => m.code !== 'all')?._id || '';
+    setModuleId(selectedModule && selectedModule.code !== 'all' ? selectedModule._id : defaultModule);
     setError('');
     setModalOpen(true);
   };
@@ -248,7 +250,8 @@ const ProManagement = () => {
     setEmail(pro.email || '');
     setStatus(pro.status || 'active');
     setNotes(pro.notes || '');
-    setModuleId(pro.module?._id || pro.module || selectedModule?._id || '');
+    const defaultModule = modules.find(m => m.code !== 'all')?._id || '';
+    setModuleId(pro.module?._id || pro.module || (selectedModule && selectedModule.code !== 'all' ? selectedModule._id : defaultModule));
     setError('');
     setModalOpen(true);
   };
@@ -549,7 +552,7 @@ const ProManagement = () => {
                 <select value={moduleId} onChange={e => setModuleId(e.target.value)}
                   className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold">
                   <option value="">Select Module</option>
-                  {modules.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  {modules.filter(m => m.code !== 'all').map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
               <div>
@@ -636,7 +639,7 @@ const ProManagement = () => {
                       className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
                     >
                       <option value="">Select Module</option>
-                      {modules.map((m) => (
+                      {modules.filter(m => m.code !== 'all').map((m) => (
                         <option key={m._id} value={m._id}>
                           {m.name}
                         </option>
@@ -764,7 +767,7 @@ const ProManagement = () => {
                               className="w-full bg-[#0a0f1d] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold"
                             >
                               <option value="">Select Module</option>
-                              {modules.map((m) => (
+                              {modules.filter(m => m.code !== 'all').map((m) => (
                                 <option key={m._id} value={m._id}>
                                   {m.name}
                                 </option>

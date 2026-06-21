@@ -17,7 +17,7 @@ const Analytics = () => {
       if (!selectedFY?._id) return;
       setLoading(true);
       try {
-        const modParam = selectedModule ? `&module=${selectedModule._id}` : '';
+        const modParam = selectedModule && selectedModule.code !== 'all' ? `&module=${selectedModule._id}` : '';
         const [monthlyRes, categoryRes] = await Promise.all([
           client.get(`/api/analytics/monthly?financialYear=${selectedFY._id}${modParam}`),
           client.get(`/api/analytics/category?financialYear=${selectedFY._id}`)
@@ -184,9 +184,18 @@ const Analytics = () => {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">
-          Collection <span className="gold-gradient-text">Analysis</span>
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl font-bold text-white">
+            Collection <span className="gold-gradient-text">Analysis</span>
+          </h1>
+          {selectedFY?._id === 'all' && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border"
+              style={{ color: '#d4af37', borderColor: '#d4af3744', background: '#d4af3718' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#d4af37' }} />
+              Scope: All Years
+            </span>
+          )}
+        </div>
         <p className="text-gray-400 text-sm mt-1">
           Detailed visual breakdown of collections for {selectedFY?.label}
         </p>

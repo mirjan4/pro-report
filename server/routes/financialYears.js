@@ -1,74 +1,62 @@
 const express = require('express');
 const router = express.Router();
-const FinancialYear = require('../models/FinancialYear');
-const { protect, adminOnly } = require('../middleware/auth');
+const Collection = require('../models/Collection');
+const { protect } = require('../middleware/auth');
 
+async function getDynamicFinancialYears() {
+  const collections = await Collection.find({}, 'date').lean();
+  const years = new Set();
+  
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const currentStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+  years.add(currentStartYear);
+
+  for (const col of collections) {
+    if (col.date) {
+      const d = new Date(col.date);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const startYear = m >= 3 ? y : y - 1;
+      years.add(startYear);
+    }
+  }
+
+  const sortedYears = Array.from(years).sort((a, b) => b - a);
+  
+  return sortedYears.map(startYear => {
+    const endYear = startYear + 1;
+    const yearStr = `${startYear}-${String(endYear).substring(2)}`;
+    return {
+      _id: startYear.toString(),
+      year: yearStr,
+      label: `FY ${yearStr}`,
+      startYear,
+      endYear,
+      isActive: startYear === currentStartYear,
+      isArchived: false,
+      description: `Auto-generated period for ${yearStr}`
+    };
+  });
+}
+
+// GET /api/financial-years
 router.get('/', protect, async (req, res) => {
   try {
-    const { includeArchived } = req.query;
-    const filter = includeArchived === 'true' ? {} : { isArchived: false };
-    const years = await FinancialYear.find(filter).sort({ startYear: -1 });
+    const years = await getDynamicFinancialYears();
     res.json({ success: true, data: years });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
+// GET /api/financial-years/active
 router.get('/active', protect, async (req, res) => {
   try {
-    const year = await FinancialYear.findOne({ isActive: true });
-    res.json({ success: true, data: year });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-router.post('/', protect, adminOnly, async (req, res) => {
-  try {
-    const { year, startYear, endYear, description } = req.body;
-    const fy = await FinancialYear.create({ year, startYear, endYear, description, createdBy: req.user._id });
-    res.status(201).json({ success: true, data: fy });
-  } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ success: false, message: 'Financial year already exists' });
-    res.status(400).json({ success: false, message: err.message });
-  }
-});
-
-router.put('/:id', protect, adminOnly, async (req, res) => {
-  try {
-    const fy = await FinancialYear.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!fy) return res.status(404).json({ success: false, message: 'Financial year not found' });
-    res.json({ success: true, data: fy });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
-  }
-});
-
-router.patch('/:id/activate', protect, adminOnly, async (req, res) => {
-  try {
-    await FinancialYear.updateMany({}, { isActive: false });
-    const fy = await FinancialYear.findByIdAndUpdate(req.params.id, { isActive: true, isArchived: false }, { new: true });
-    if (!fy) return res.status(404).json({ success: false, message: 'Financial year not found' });
-    res.json({ success: true, data: fy });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-router.patch('/:id/archive', protect, adminOnly, async (req, res) => {
-  try {
-    const fy = await FinancialYear.findByIdAndUpdate(req.params.id, { isArchived: true, isActive: false }, { new: true });
-    if (!fy) return res.status(404).json({ success: false, message: 'Financial year not found' });
-    res.json({ success: true, data: fy });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-router.delete('/:id', protect, adminOnly, async (req, res) => {
-  try {
-    await FinancialYear.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Deleted' });
+    const years = await getDynamicFinancialYears();
+    const active = years.find(y => y.isActive);
+    res.json({ success: true, data: active });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
