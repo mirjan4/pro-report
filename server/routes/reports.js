@@ -464,22 +464,52 @@ router.get('/generate', protect, async (req, res) => {
       detailedReportTitle = 'CATEGORY COLLECTION DETAILS';
       detailedReportColumns = ['Rank', 'Category', 'Collection Amount', 'Contribution %'];
       
+      const globalTakaful = filteredCollections.filter(c => c.module && (c.module.code === 'glb' || c.module.code === 'global')).reduce((sum, c) => sum + (c.amount || 0), 0);
+      const globalAdd = filteredCollections.filter(c => c.module && (c.module.code === 'glb' || c.module.code === 'global')).reduce((sum, c) => sum + (c.additionalAmount || 0), 0);
+      const globalPerf = globalTakaful + globalAdd;
+
+      const proTakaful = filteredCollections.filter(c => c.module && c.module.code === 'pro').reduce((sum, c) => sum + (c.amount || 0), 0);
+      const proAdd = filteredCollections.filter(c => c.module && c.module.code === 'pro').reduce((sum, c) => sum + (c.additionalAmount || 0), 0);
+      const proPerf = proTakaful + proAdd;
+
+      const officeTakaful = filteredCollections.filter(c => c.module && (c.module.code === 'ofc' || c.module.code === 'office')).reduce((sum, c) => sum + (c.amount || 0), 0);
+      const officeAdd = filteredCollections.filter(c => c.module && (c.module.code === 'ofc' || c.module.code === 'office')).reduce((sum, c) => sum + (c.additionalAmount || 0), 0);
+      const officePerf = officeTakaful + officeAdd;
+
+      const totalPerf = globalPerf + proPerf + officePerf;
+
       const categoryList = modules.map(mod => {
+        let takaful = 0;
+        let additional = 0;
         let total = 0;
-        if (mod.code === 'pro') total = proTotal;
-        else if (mod.code === 'ofc' || mod.code === 'office') total = officeTotal;
-        else if (mod.code === 'glb' || mod.code === 'global') total = globalTotal;
+        if (mod.code === 'pro') {
+          takaful = proTakaful;
+          additional = proAdd;
+          total = proPerf;
+        } else if (mod.code === 'ofc' || mod.code === 'office') {
+          takaful = officeTakaful;
+          additional = officeAdd;
+          total = officePerf;
+        } else if (mod.code === 'glb' || mod.code === 'global') {
+          takaful = globalTakaful;
+          additional = globalAdd;
+          total = globalPerf;
+        }
 
         return {
           name: mod.name,
+          takafulAmount: takaful,
+          additionalAmount: additional,
           amount: total,
-          pct: totalCollection > 0 ? parseFloat((total / totalCollection * 100).toFixed(1)) : 0
+          pct: totalPerf > 0 ? parseFloat((total / totalPerf * 100).toFixed(1)) : 0
         };
       }).sort((a, b) => b.amount - a.amount);
 
       detailedReportRows = categoryList.map((c, idx) => ({
         rank: idx + 1,
         name: c.name,
+        takafulAmount: c.takafulAmount,
+        additionalAmount: c.additionalAmount,
         amount: c.amount,
         pct: c.pct
       }));
@@ -493,9 +523,11 @@ router.get('/generate', protect, async (req, res) => {
         if (!c.pro) return;
         const pid = getProId(c.pro);
         if (!proMap[pid]) {
-          proMap[pid] = { name: c.proName || c.pro.name, area: c.pro.area || '—', total: 0, status: c.pro.status || 'active' };
+          proMap[pid] = { name: c.proName || c.pro.name, area: c.pro.area || '—', takafulTotal: 0, additionalTotal: 0, total: 0, status: c.pro.status || 'active' };
         }
-        proMap[pid].total += (c.amount || 0);
+        proMap[pid].takafulTotal += (c.amount || 0);
+        proMap[pid].additionalTotal += (c.additionalAmount || 0);
+        proMap[pid].total += (c.totalAmount || 0);
       });
 
       // Include PROs from current module with zero collections
@@ -503,9 +535,11 @@ router.get('/generate', protect, async (req, res) => {
       prosInModule.forEach(p => {
         const pid = p._id.toString();
         if (!proMap[pid]) {
-          proMap[pid] = { name: p.name, area: p.area || '—', total: 0, status: p.status };
+          proMap[pid] = { name: p.name, area: p.area || '—', takafulTotal: 0, additionalTotal: 0, total: 0, status: p.status };
         }
       });
+
+      const proPerfTotal = Object.values(proMap).reduce((s, p) => s + p.total, 0);
 
       detailedReportRows = Object.values(proMap)
         .sort((a, b) => b.total - a.total)
@@ -513,14 +547,72 @@ router.get('/generate', protect, async (req, res) => {
           rank: idx + 1,
           name: p.name,
           area: p.area,
+          takafulAmount: p.takafulTotal,
+          additionalAmount: p.additionalTotal,
           amount: p.total,
-          pct: totalCollection > 0 ? parseFloat((p.total / totalCollection * 100).toFixed(1)) : 0,
+          pct: proPerfTotal > 0 ? parseFloat((p.total / proPerfTotal * 100).toFixed(1)) : 0,
           status: p.status
         }));
     }
 
+    const detailedReportTotal = detailedReportRows.reduce((sum, r) => sum + r.amount, 0);
+
+    // Calculate all contributors list for Worksheet 2 (CONTRIBUTOR DETAILS)
+    const allProMap = {};
+    filteredCollections.forEach(c => {
+      if (!c.pro) return;
+      const pid = getProId(c.pro);
+      if (!allProMap[pid]) {
+        allProMap[pid] = {
+          name: c.proName || c.pro.name,
+          area: c.pro.area || '—',
+          takafulTotal: 0,
+          additionalTotal: 0,
+          total: 0,
+          status: c.pro.status || 'active'
+        };
+      }
+      allProMap[pid].takafulTotal += (c.amount || 0);
+      allProMap[pid].additionalTotal += (c.additionalAmount || 0);
+      allProMap[pid].total += (c.totalAmount || 0);
+    });
+
+    let prosToInclude = [];
+    if (selectedModuleId) {
+      prosToInclude = await Pro.find({ module: selectedModuleId }).lean();
+    } else {
+      prosToInclude = await Pro.find({}).lean();
+    }
+
+    prosToInclude.forEach(p => {
+      const pid = p._id.toString();
+      if (!allProMap[pid]) {
+        allProMap[pid] = {
+          name: p.name,
+          area: p.area || '—',
+          takafulTotal: 0,
+          additionalTotal: 0,
+          total: 0,
+          status: p.status || 'active'
+        };
+      }
+    });
+
+    const allContributorsList = Object.values(allProMap)
+      .sort((a, b) => b.total - a.total)
+      .map((p, idx) => ({
+        rank: idx + 1,
+        name: p.name,
+        area: p.area,
+        takafulAmount: p.takafulTotal,
+        additionalAmount: p.additionalTotal,
+        amount: p.total,
+        status: p.status
+      }));
+
     res.json({
       success: true,
+      allContributors: allContributorsList,
       data: {
         title: periodTitle,
         subtitle: periodLabel,
@@ -573,7 +665,7 @@ router.get('/generate', protect, async (req, res) => {
           rows: detailedReportRows,
 
           totalContributors: detailedReportRows.length,
-          totalCollection: totalCollection
+          totalCollection: detailedReportTotal
         }
       }
     });

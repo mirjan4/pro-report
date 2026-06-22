@@ -6,6 +6,7 @@ import { Trophy, Search, ChevronDown, ChevronUp, Download, Eye, TrendingUp, Aler
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { ROBOTO_FONT_BASE64 } from '../assets/font';
 
 const Rankings = () => {
   const { selectedFY, selectedModule } = useApp();
@@ -92,7 +93,7 @@ const Rankings = () => {
     const dataToExport = sortedList.map(p => ({
       Rank: p.rank,
       Name: p.name,
-      'Total Collection (INR)': p.total,
+      'Total Collection (₹)': p.total,
       'Growth (%)': p.growth,
       Status: p.status
     }));
@@ -106,9 +107,14 @@ const Rankings = () => {
   // Export to PDF
   const exportPDF = () => {
     const doc = new jsPDF();
+    doc.addFileToVFS('Roboto-Regular.ttf', ROBOTO_FONT_BASE64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+    doc.setFont('Roboto');
+
     doc.text(`PRO Performance Rankings - ${selectedFY?._id === 'all' ? 'All Years' : selectedFY?.label}`, 14, 15);
 
-    const tableColumn = ['Rank', 'Name', 'Total Collection (INR)', 'Growth %', 'Status'];
+    const tableColumn = ['Rank', 'Name', 'Total Collection (₹)', 'Growth %', 'Status'];
     const tableRows = sortedList.map(p => [
       p.rank,
       p.name,
@@ -122,8 +128,8 @@ const Rankings = () => {
       body: tableRows,
       startY: 22,
       theme: 'grid',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [13, 27, 42] }
+      styles: { fontSize: 9, font: 'Roboto' },
+      headStyles: { fillColor: [13, 27, 42], font: 'Roboto' }
     });
 
     doc.save(`PRO_Rankings_${selectedFY?._id === 'all' ? 'All-Years' : selectedFY?.year}.pdf`);

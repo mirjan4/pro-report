@@ -21,7 +21,8 @@
     "react-dom": "^19.2.6",
     "react-router-dom": "^6.30.4",
     "takaful-monorepo": "file:..",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

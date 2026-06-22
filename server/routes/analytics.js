@@ -47,7 +47,7 @@ router.get('/kpi', protect, async (req, res) => {
     let fyId = financialYear || 'all';
 
     const collections = await getModuleCollections(fyId, moduleId);
-    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
 
     let currentFY;
     if (fyId === 'all') {
@@ -83,7 +83,7 @@ router.get('/kpi', protect, async (req, res) => {
         isActive: false
       };
       const prevCols = await getModuleCollections(prevFY._id, moduleId);
-      prevTotal = prevCols.reduce((s, c) => s + (c.amount || 0), 0);
+      prevTotal = prevCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
       growthPct = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
     }
 
@@ -117,8 +117,8 @@ router.get('/monthly', protect, async (req, res) => {
       const monthCols = collections.filter(c => c.month === month);
       return {
         month, index: idx,
-        total: monthCols.reduce((s, c) => s + (c.amount || 0), 0),
-        amount: monthCols.reduce((s, c) => s + (c.amount || 0), 0),
+        total: monthCols.reduce((s, c) => s + (c.totalAmount || 0), 0),
+        amount: monthCols.reduce((s, c) => s + (c.totalAmount || 0), 0),
         count: monthCols.length
       };
     });
@@ -150,10 +150,10 @@ router.get('/category', protect, async (req, res) => {
       getModuleCollections(fyId, null),
       Module.find({}).sort({ sortOrder: 1, name: 1 })
     ]);
-    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
     const breakdown = modules.map(mod => {
       const modCols = collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString());
-      const value = modCols.reduce((s, c) => s + (c.amount || 0), 0);
+      const value = modCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
       return { name: mod.name, code: mod.code, color: mod.color, value, pct: total > 0 ? (value / total * 100).toFixed(1) : 0 };
     });
     res.json({ success: true, data: breakdown });
@@ -177,13 +177,13 @@ router.get('/category-monthly', protect, async (req, res) => {
       Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 })
     ]);
 
-    const grandTotal = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const grandTotal = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
 
     const categoryBreakdown = modules.map(mod => {
       const modCols = filterMonth
         ? collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString() && c.month === filterMonth)
         : collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString());
-      const value = modCols.reduce((s, c) => s + (c.amount || 0), 0);
+      const value = modCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
       return {
         name: mod.name,
         code: mod.code,
@@ -199,7 +199,7 @@ router.get('/category-monthly', protect, async (req, res) => {
         const modMonthCols = collections.filter(c =>
           c.module && getModuleId(c.module) === mod._id.toString() && c.month === m
         );
-        entry[mod.code] = modMonthCols.reduce((s, c) => s + (c.amount || 0), 0);
+        entry[mod.code] = modMonthCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
         entry[`${mod.code}_name`] = mod.name;
         entry[`${mod.code}_color`] = mod.color || '#d4af37';
       });
@@ -257,8 +257,8 @@ router.get('/rankings', protect, async (req, res) => {
     if (!moduleId || moduleId === 'all') {
       const modules = await Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 });
       const rankingsList = modules.map(mod => {
-        const curr = collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
-        const prev = prevCollections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const curr = collections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.totalAmount || 0), 0);
+        const prev = prevCollections.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.totalAmount || 0), 0);
         const growth = prev > 0 ? ((curr - prev) / prev * 100) : (curr > 0 ? 100 : 0);
         return {
           proId: mod._id.toString(),
@@ -285,14 +285,14 @@ router.get('/rankings', protect, async (req, res) => {
       if (!c.pro) continue;
       const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (!proMap[pid]) proMap[pid] = { proId: pid, name: c.proName || (c.pro.name || pid), total: 0 };
-      proMap[pid].total += (c.amount || 0);
+      proMap[pid].total += (c.totalAmount || 0);
     }
     const prevMap = {};
     for (const c of prevCollections) {
       if (!c.pro) continue;
       const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (!prevMap[pid]) prevMap[pid] = 0;
-      prevMap[pid] += (c.amount || 0);
+      prevMap[pid] += (c.totalAmount || 0);
     }
 
     const proFilter = {};
@@ -368,8 +368,8 @@ router.get('/pro/:proId', protect, async (req, res) => {
       if (filterMonth && MONTHS.includes(filterMonth)) prevFilter.month = filterMonth;
       prevCollections = await Collection.find(prevFilter).sort({ date: 1 });
 
-      prevTotal = prevCollections.reduce((s, c) => s + (c.amount || 0), 0);
-      const totalCol = collections.reduce((s, c) => s + (c.amount || 0), 0);
+      prevTotal = prevCollections.reduce((s, c) => s + (c.totalAmount || 0), 0);
+      const totalCol = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
       growth = prevTotal > 0 ? ((totalCol - prevTotal) / prevTotal * 100) : (totalCol > 0 ? 100 : 0);
 
       if (filterMonth) {
@@ -381,7 +381,7 @@ router.get('/pro/:proId', protect, async (req, res) => {
       }
     }
 
-    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
     const allColFilter = { pro: req.params.proId };
     if (fyId !== 'all') {
       const { startDate, endDate } = getFYDateRange(fyId);
@@ -406,8 +406,8 @@ router.get('/pro/:proId', protect, async (req, res) => {
     const monthlyBreakdown = MONTHS.map((month, idx) => {
       const currCols = allCollections.filter(c => c.month === month);
       const prevCols = allPrevCollections.filter(c => c.month === month);
-      const currentSum = currCols.reduce((sum, c) => sum + (c.amount || 0), 0);
-      const previousSum = prevCols.reduce((sum, c) => sum + (c.amount || 0), 0);
+      const currentSum = currCols.reduce((sum, c) => sum + (c.totalAmount || 0), 0);
+      const previousSum = prevCols.reduce((sum, c) => sum + (c.totalAmount || 0), 0);
       return {
         month,
         index: idx,
@@ -469,21 +469,21 @@ router.get('/comparison', protect, async (req, res) => {
     const proNameMap = {};
     pros.forEach(p => proNameMap[p._id.toString()] = p.name);
 
-    const monthly1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
-    const monthly2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
+    const monthly1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.month === m).reduce((s, c) => s + (c.totalAmount || 0), 0) }));
+    const monthly2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.month === m).reduce((s, c) => s + (c.totalAmount || 0), 0) }));
 
     const proMonthlyComparison = proIds.map(pid => {
       const name = proNameMap[pid] || pid;
-      const yearData1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
-      const yearData2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.amount || 0), 0) }));
+      const yearData1 = MONTHS.map(m => ({ month: m, total: cols1.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.totalAmount || 0), 0) }));
+      const yearData2 = MONTHS.map(m => ({ month: m, total: cols2.filter(c => c.pro && getProId(c.pro) === pid && c.month === m).reduce((s, c) => s + (c.totalAmount || 0), 0) }));
       const t1 = yearData1.reduce((s, m) => s + m.total, 0);
       const t2 = yearData2.reduce((s, m) => s + m.total, 0);
       const growth = t1 > 0 ? ((t2 - t1) / t1 * 100) : (t2 > 0 ? 100 : 0);
       return { proId: pid, name, year1Monthly: yearData1, year2Monthly: yearData2, total1: t1, total2: t2, growth: Math.round(growth * 100) / 100 };
     });
 
-    const total1 = cols1.reduce((s, c) => s + (c.amount || 0), 0);
-    const total2 = cols2.reduce((s, c) => s + (c.amount || 0), 0);
+    const total1 = cols1.reduce((s, c) => s + (c.totalAmount || 0), 0);
+    const total2 = cols2.reduce((s, c) => s + (c.totalAmount || 0), 0);
     const diff = total2 - total1;
     const growthPct = total1 > 0 ? (diff / total1 * 100) : 0;
 
@@ -491,8 +491,8 @@ router.get('/comparison', protect, async (req, res) => {
     if (!moduleId || moduleId === 'all') {
       const modules = await Module.find({ $or: [{ isActive: true }, { code: { $in: ['pro', 'ofc', 'glb', 'office', 'global'] } }] }).sort({ sortOrder: 1, name: 1 });
       const categoryComparisonList = modules.map(mod => {
-        const val1 = cols1.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
-        const val2 = cols2.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.amount || 0), 0);
+        const val1 = cols1.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.totalAmount || 0), 0);
+        const val2 = cols2.filter(c => c.module && getModuleId(c.module) === mod._id.toString()).reduce((s, c) => s + (c.totalAmount || 0), 0);
         const diff = val2 - val1;
         const growthPct = val1 > 0 ? ((val2 - val1) / val1 * 100) : (val2 > 0 ? 100 : 0);
         const contributionPct = total2 > 0 ? (val2 / total2 * 100) : 0;
@@ -560,13 +560,13 @@ router.get('/insights', protect, async (req, res) => {
       };
     }
 
-    const total = collections.reduce((s, c) => s + (c.amount || 0), 0);
+    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
     const proMap = {};
     for (const c of collections) {
       if (!c.pro) continue;
       const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (!proMap[pid]) proMap[pid] = { name: c.proName, total: 0 };
-      proMap[pid].total += (c.amount || 0);
+      proMap[pid].total += (c.totalAmount || 0);
     }
     const sorted = Object.values(proMap).sort((a, b) => b.total - a.total);
     const topPerformer = sorted[0];
@@ -574,7 +574,7 @@ router.get('/insights', protect, async (req, res) => {
     const contributingIds = new Set(Object.keys(proMap));
     const zeroPros = activePros.filter(p => !contributingIds.has(p._id.toString()));
 
-    const monthlyTotals = MONTHS.map(m => collections.filter(c => c.month === m).reduce((s, c) => s + (c.amount || 0), 0));
+    const monthlyTotals = MONTHS.map(m => collections.filter(c => c.month === m).reduce((s, c) => s + (c.totalAmount || 0), 0));
     const nonZeroMonths = monthlyTotals.filter(t => t > 0);
     const avg = nonZeroMonths.reduce((s, t) => s + t, 0) / (nonZeroMonths.length || 1);
     const aboveAvg = nonZeroMonths.filter(t => t > avg).length;
@@ -655,7 +655,7 @@ router.get('/monthly-comparison', protect, async (req, res) => {
       if (!c.pro) return;
       const pid = c.pro._id ? c.pro._id.toString() : c.pro.toString();
       if (proMap[pid]) {
-        proMap[pid].monthlyAmounts[c.month] = (c.amount || 0);
+        proMap[pid].monthlyAmounts[c.month] = (c.totalAmount || 0);
       }
     });
 
@@ -714,7 +714,7 @@ router.get('/monthly-comparison', protect, async (req, res) => {
         const prevQuery = { date: { $gte: prevFYDateRange.startDate, $lte: prevFYDateRange.endDate }, month: 'March' };
         if (moduleId) prevQuery.module = moduleId;
         const prevCols = await Collection.find(prevQuery);
-        prevMonthTotal = prevCols.reduce((s, c) => s + (c.amount || 0), 0);
+        prevMonthTotal = prevCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
       }
       prevMonth = 'March (Prev FY)';
     }

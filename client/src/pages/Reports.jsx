@@ -6,9 +6,10 @@ import {
   Sparkles, CheckCircle, Sliders, CalendarDays, AlertTriangle,
   Printer, TrendingUp, DollarSign, Users, RefreshCw, Share2
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx-js-style';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { ROBOTO_FONT_BASE64 } from '../assets/font';
 
 const MONTHS = [
   'April', 'May', 'June', 'July', 'August', 'September',
@@ -97,107 +98,481 @@ const Reports = () => {
     try {
       const workbook = XLSX.utils.book_new();
 
-      // Sheet 1: Management Summary
-      const sheet1AOA = [
-        [report.title],
-        [report.subtitle],
-        [],
-        ['NEW SPONSORS ADDED'],
-        ['Sponsor Tier', 'Count'],
-        ['Premium', report.sponsorsSummary.premium],
-        ['Smart', report.sponsorsSummary.smart],
-        ['Standard', report.sponsorsSummary.standard],
-        ['Total New Sponsors', report.sponsorsSummary.total],
-        [],
-        ['SPONSORS ADDED BY PRO / OFFICE'],
-        ['PRO / Office Recruiter', 'Sponsors Count'],
-        ...report.sponsorsByRecruiter.map(s => [s.name, s.count]),
-        [],
-        ['COLLECTION SUMMARY'],
-        ['Collection Source', 'Amount'],
-        ['Global Collection', report.collectionSummary.global],
-        ['PRO Collection', report.collectionSummary.pro],
-        ['Office Collection', report.collectionSummary.office],
-        ['Total Collection', report.collectionSummary.total],
-        [],
-        ['ALLOCATED PROJECT DISTRIBUTIONS'],
-        ['Head', 'Amount'],
-        ...((() => {
-          const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-          return [
-            { head: 'Takaful', amount: remaining },
-            ...(report.collectionDistribution?.distributions || [])
-          ].filter(item => item.amount > 0).map(item => [item.head, item.amount]);
-        })()),
-        [],
-        ['GRAND TOTAL'],
-        ['Total Collection', report.collectionSummary.total],
-        ['Direct Collections Through PROs', report.additionalSubtotal],
-        ['Grand Total', report.grandTotal]
-      ];
+      // Excel Styles Definition (xlsx-js-style format)
+      const styles = {
+        title: {
+          font: { name: 'Calibri', sz: 16, bold: true, color: { rgb: '0D1B2A' } },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        },
+        subtitle: {
+          font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: '555555' } },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        },
+        sectionHeader: {
+          font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: '0D1B2A' } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        tableHeader: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F3F4F6' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
+            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+          },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        },
+        tableHeaderLeft: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F3F4F6' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
+            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+          },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        cellNormal: {
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        cellNormalRight: {
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'right', vertical: 'center' }
+        },
+        cellNormalCenter: {
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        },
+        cellShadedNormal: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        cellShadedRight: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'right', vertical: 'center' }
+        },
+        cellShadedCenter: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
+            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+          },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        },
+        cellBoldNormal: {
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+          },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        cellBoldRight: {
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          border: {
+            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            bottom: { style: 'double', color: { rgb: '0D1B2A' } },
+            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
+            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+          },
+          alignment: { horizontal: 'right', vertical: 'center' }
+        },
+        grandTotal: {
+          fill: { patternType: 'solid', fgColor: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'F5C518' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: { style: 'medium', color: { rgb: 'F5C518' } },
+            bottom: { style: 'medium', color: { rgb: 'F5C518' } },
+            left: { style: 'medium', color: { rgb: 'F5C518' } },
+            right: { style: 'medium', color: { rgb: 'F5C518' } }
+          }
+        }
+      };
+
+      const makeCell = (val, type = 's', style = null, numFmt = null) => {
+        const cell = { v: val, t: type };
+        if (style) cell.s = style;
+        if (numFmt) cell.z = numFmt;
+        return cell;
+      };
+
+      // =========================================================================
+      // WORKSHEET 1: TAKAFUL REPORT
+      // =========================================================================
+      const sheet1Rows = [];
+      const sheet1Merges = [];
+
+      // Helper to add section headers
+      const addSectionHeader = (title) => {
+        const rIdx = sheet1Rows.length;
+        sheet1Rows.push([makeCell(title, 's', styles.sectionHeader), {}, {}, {}, {}]);
+        sheet1Merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+      };
+
+      // Title & Subtitle Block
+      sheet1Rows.push([makeCell(report.title, 's', styles.title), {}, {}, {}, {}]);
+      sheet1Merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+
+      sheet1Rows.push([makeCell(report.subtitle, 's', styles.subtitle), {}, {}, {}, {}]);
+      sheet1Merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 1: NEW SPONSORS ADDED
+      addSectionHeader('NEW SPONSORS ADDED');
+      sheet1Rows.push([
+        makeCell('Sponsor Tier', 's', styles.tableHeaderLeft),
+        makeCell('Count', 's', styles.tableHeader),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Premium', 's', styles.cellNormal),
+        makeCell(report.sponsorsSummary.premium, 'n', styles.cellNormalRight),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Smart', 's', styles.cellShadedNormal),
+        makeCell(report.sponsorsSummary.smart, 'n', styles.cellShadedRight),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Standard', 's', styles.cellNormal),
+        makeCell(report.sponsorsSummary.standard, 'n', styles.cellNormalRight),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Total New Sponsors', 's', styles.cellBoldNormal),
+        makeCell(report.sponsorsSummary.total, 'n', styles.cellBoldRight),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 2: SPONSORS ADDED BY RECRUITER
+      addSectionHeader('SPONSORS ADDED BY RECRUITER');
+      sheet1Rows.push([
+        makeCell('PRO / Office Recruiter', 's', styles.tableHeaderLeft),
+        makeCell('Sponsors Count', 's', styles.tableHeader),
+        {}, {}, {}
+      ]);
+      if (report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0) {
+        report.sponsorsByRecruiter.forEach((s, idx) => {
+          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
+          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
+          sheet1Rows.push([
+            makeCell(s.name, 's', styleN),
+            makeCell(s.count, 'n', styleR),
+            {}, {}, {}
+          ]);
+        });
+      } else {
+        sheet1Rows.push([
+          makeCell('No sponsors added', 's', styles.cellNormal),
+          makeCell(0, 'n', styles.cellNormalRight),
+          {}, {}, {}
+        ]);
+      }
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 3: COLLECTION SUMMARY
+      addSectionHeader('COLLECTION SUMMARY');
+      sheet1Rows.push([
+        makeCell('Collection Source', 's', styles.tableHeaderLeft),
+        makeCell('Amount', 's', styles.tableHeader),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Global Collection', 's', styles.cellNormal),
+        makeCell(report.collectionSummary.global, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('PRO Collection', 's', styles.cellShadedNormal),
+        makeCell(report.collectionSummary.pro, 'n', styles.cellShadedRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Office Collection', 's', styles.cellNormal),
+        makeCell(report.collectionSummary.office, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([
+        makeCell('Total Collection', 's', styles.cellBoldNormal),
+        makeCell(report.collectionSummary.total, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 4: ALLOCATED PROJECT DISTRIBUTIONS
+      addSectionHeader('ALLOCATED PROJECT DISTRIBUTIONS');
+      sheet1Rows.push([
+        makeCell('Head', 's', styles.tableHeaderLeft),
+        makeCell('Amount', 's', styles.tableHeader),
+        {}, {}, {}
+      ]);
+      const remainingTakaful = report.collectionDistribution?.remainingTakafulBalance || 0;
+      sheet1Rows.push([
+        makeCell('Takaful', 's', styles.cellNormal),
+        makeCell(remainingTakaful, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      const activeDists = (report.collectionDistribution?.distributions || []).filter(d => d.amount > 0);
+      activeDists.forEach((d, idx) => {
+        const styleN = idx % 2 === 1 ? styles.cellNormal : styles.cellShadedNormal;
+        const styleR = idx % 2 === 1 ? styles.cellNormalRight : styles.cellShadedRight;
+        sheet1Rows.push([
+          makeCell(d.head, 's', styleN),
+          makeCell(d.amount, 'n', styleR, '"₹"#,##,##0'),
+          {}, {}, {}
+        ]);
+      });
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 5: DIRECT COLLECTIONS RECEIVED THROUGH PROs
+      addSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs');
+      sheet1Rows.push([
+        makeCell('Name', 's', styles.tableHeaderLeft),
+        makeCell('Amount', 's', styles.tableHeader),
+        {}, {}, {}
+      ]);
+      const validPivotRows = (report.additionalPivotRows || []).filter(r => {
+        const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+        return total > 0;
+      });
+      if (validPivotRows.length > 0) {
+        validPivotRows.forEach((r, idx) => {
+          const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
+          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
+          sheet1Rows.push([
+            makeCell(r.proName, 's', styleN),
+            makeCell(total, 'n', styleR, '"₹"#,##,##0'),
+            {}, {}, {}
+          ]);
+        });
+      } else {
+        sheet1Rows.push([
+          makeCell('No direct collections', 's', styles.cellNormal),
+          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+          {}, {}, {}
+        ]);
+      }
+      sheet1Rows.push([
+        makeCell('Subtotal', 's', styles.cellBoldNormal),
+        makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
+        {}, {}, {}
+      ]);
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      // Section 6: CATEGORY RANKINGS / RANKINGS
+      const rankTitle = report.collectionFilterCode === 'all' ? 'CATEGORY RANKINGS' : 'RANKINGS';
+      addSectionHeader(rankTitle);
       
-      const sheet1 = XLSX.utils.aoa_to_sheet(sheet1AOA);
-      XLSX.utils.book_append_sheet(workbook, sheet1, 'Management Summary');
-
-      // Sheet 2: Collection Distribution
-      const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-      const distAOA = [
-        ['TAKAFUL DISTRIBUTION REPORT'],
-        [report.subtitle],
-        [],
-        ['Head', 'Amount'],
-        ['Takaful', remaining],
-        ...(report.collectionDistribution?.distributions || []).filter(d => d.amount > 0).map(d => [d.head, d.amount])
-      ];
-      
-      const distSheet = XLSX.utils.aoa_to_sheet(distAOA);
-      XLSX.utils.book_append_sheet(workbook, distSheet, 'Collection Distribution');
-
-      // Sheet 4: Detailed Direct Collections (Pivot)
-      if (report.additionalPivotRows && report.additionalPivotRows.length > 0) {
-        const sheet3AOA = [
-          ['DIRECT COLLECTIONS RECEIVED THROUGH PROs'],
-          [report.subtitle],
-          [],
-          ['PRO Name', ...report.additionalColumns, 'Total Amount'],
-          ...report.additionalPivotRows.map(r => {
-            const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
-            return [
-              r.proName,
-              ...report.additionalColumns.map(col => r[col] || 0),
-              rowTotal
-            ];
-          }),
-          [],
-          ['Total PROs', report.additionalPivotRows.length, 'Total Direct Collections', report.additionalSubtotal]
-        ];
-
-        const sheet3 = XLSX.utils.aoa_to_sheet(sheet3AOA);
-        XLSX.utils.book_append_sheet(workbook, sheet3, 'Detailed Direct Collections');
+      const isAllFilter = report.collectionFilterCode === 'all';
+      if (isAllFilter) {
+        sheet1Rows.push([
+          makeCell('Rank', 's', styles.tableHeader),
+          makeCell('Category', 's', styles.tableHeaderLeft),
+          makeCell('Collection Amount', 's', styles.tableHeader),
+          makeCell('Contribution %', 's', styles.tableHeader),
+          {}
+        ]);
+      } else {
+        sheet1Rows.push([
+          makeCell('Rank', 's', styles.tableHeader),
+          makeCell('PRO Name', 's', styles.tableHeaderLeft),
+          makeCell('Collection Amount', 's', styles.tableHeader),
+          makeCell('Contribution %', 's', styles.tableHeader),
+          makeCell('Status', 's', styles.tableHeader)
+        ]);
       }
 
-      // Sheet 3: Detailed Collection Report
-      const sortedRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
-      const sheet2AOA = [
-        [report.detailedReport.title],
-        [report.subtitle],
-        [],
-        report.collectionFilterCode === 'all'
-          ? ['Category', 'Collection Amount', 'Contribution %']
-          : ['PRO Name', 'Collection Amount', 'Contribution %', 'Status'],
-        ...sortedRows.map(r => {
-          if (report.collectionFilterCode === 'all') {
-            return [r.name, r.amount, `${r.pct}%`];
+      if (report.detailedReport && report.detailedReport.rows) {
+        const sortedReportRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
+        sortedReportRows.forEach((r, idx) => {
+          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
+          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
+          const styleC = idx % 2 === 0 ? styles.cellNormalCenter : styles.cellShadedCenter;
+          if (isAllFilter) {
+            sheet1Rows.push([
+              makeCell(r.rank, 'n', styleC),
+              makeCell(r.name, 's', styleN),
+              makeCell(r.amount, 'n', styleR, '"₹"#,##,##0'),
+              makeCell(`${r.pct}%`, 's', styleR),
+              {}
+            ]);
           } else {
-            return [r.name, r.amount, `${r.pct}%`, r.status];
+            sheet1Rows.push([
+              makeCell(r.rank, 'n', styleC),
+              makeCell(r.name, 's', styleN),
+              makeCell(r.amount, 'n', styleR, '"₹"#,##,##0'),
+              makeCell(`${r.pct}%`, 's', styleR),
+              makeCell((r.status || '').toUpperCase(), 's', styleC)
+            ]);
           }
-        }),
-        [],
-        ['Total Contributors', report.detailedReport.totalContributors, 'Total Collection', report.detailedReport.totalCollection]
-      ];
+        });
+      }
+      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
 
-      const sheet2 = XLSX.utils.aoa_to_sheet(sheet2AOA);
-      XLSX.utils.book_append_sheet(workbook, sheet2, 'Detailed Collection Report');
+      // Grand Total Footer Row
+      const grandTotalRowIdx = sheet1Rows.length;
+      sheet1Rows.push([
+        makeCell(`GRAND TOTAL : ₹ ${report.grandTotal.toLocaleString('en-IN')}`, 's', styles.grandTotal),
+        {}, {}, {}, {}
+      ]);
+      sheet1Merges.push({ s: { r: grandTotalRowIdx, c: 0 }, e: { r: grandTotalRowIdx, c: 4 } });
+
+      const sheet1 = XLSX.utils.aoa_to_sheet(sheet1Rows);
+      sheet1['!merges'] = sheet1Merges;
+
+      // Auto-fit column widths
+      const autoFitCols = (ws, rows) => {
+        const colWidths = [];
+        rows.forEach(row => {
+          row.forEach((cell, cIdx) => {
+            let val = "";
+            if (cell && cell.v !== undefined && cell.v !== null) {
+              val = String(cell.v);
+              if (cell.z) {
+                val = "₹" + val + ".00";
+              }
+            }
+            const len = val.length;
+            if (!colWidths[cIdx] || len > colWidths[cIdx]) {
+              colWidths[cIdx] = len;
+            }
+          });
+        });
+        ws['!cols'] = colWidths.map(w => ({ wch: Math.max(w + 3, 10) }));
+      };
+      autoFitCols(sheet1, sheet1Rows);
+
+      // A4 portrait and print settings
+      sheet1['!pageSetup'] = { orientation: 'portrait', paperSize: 9 };
+      sheet1['!views'] = [{ showGridLines: true }];
+
+      XLSX.utils.book_append_sheet(workbook, sheet1, 'TAKAFUL REPORT');
+
+      // =========================================================================
+      // WORKSHEET 2: CONTRIBUTOR DETAILS
+      // =========================================================================
+      const sheet2Rows = [];
+      const sheet2Merges = [];
+
+      sheet2Rows.push([makeCell('CONTRIBUTOR PERFORMANCE DETAILS', 's', styles.title), {}, {}, {}, {}]);
+      sheet2Merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+
+      sheet2Rows.push([makeCell(report.subtitle, 's', styles.subtitle), {}, {}, {}, {}]);
+      sheet2Merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+
+      sheet2Rows.push([{}, {}, {}, {}, {}]); // Spacer
+
+      sheet2Rows.push([
+        makeCell('Rank', 's', styles.tableHeader),
+        makeCell('Name', 's', styles.tableHeaderLeft),
+        makeCell('Collection (Takaful)', 's', styles.tableHeader),
+        makeCell('Additional Collection', 's', styles.tableHeader),
+        makeCell('Total Performance', 's', styles.tableHeader)
+      ]);
+
+      const contributors = report.allContributors || report.detailedReport?.rows || [];
+      if (contributors.length > 0) {
+        contributors.forEach((c, idx) => {
+          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
+          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
+          const styleC = idx % 2 === 0 ? styles.cellNormalCenter : styles.cellShadedCenter;
+          sheet2Rows.push([
+            makeCell(c.rank, 'n', styleC),
+            makeCell(c.name, 's', styleN),
+            makeCell(c.takafulAmount || 0, 'n', styleR, '"₹"#,##,##0'),
+            makeCell(c.additionalAmount || 0, 'n', styleR, '"₹"#,##,##0'),
+            makeCell(c.amount || 0, 'n', styleR, '"₹"#,##,##0')
+          ]);
+        });
+      } else {
+        sheet2Rows.push([
+          makeCell('-', 's', styles.cellNormalCenter),
+          makeCell('No contributor data available', 's', styles.cellNormal),
+          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
+          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0')
+        ]);
+      }
+
+      // Total row at the end of Worksheet 2
+      const sheet2TotalRowIdx = sheet2Rows.length;
+      sheet2Rows.push([
+        makeCell('Total', 's', styles.cellBoldNormal),
+        makeCell('', 's', styles.cellBoldNormal),
+        makeCell(report.collectionSummary.total, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
+        makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
+        makeCell(report.grandTotal, 'n', styles.cellBoldRight, '"₹"#,##,##0')
+      ]);
+      sheet2Merges.push({ s: { r: sheet2TotalRowIdx, c: 0 }, e: { r: sheet2TotalRowIdx, c: 1 } });
+
+      const sheet2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
+      sheet2['!merges'] = sheet2Merges;
+      autoFitCols(sheet2, sheet2Rows);
+
+      sheet2['!pageSetup'] = { orientation: 'portrait', paperSize: 9 };
+      sheet2['!views'] = [{ showGridLines: true }];
+
+      XLSX.utils.book_append_sheet(workbook, sheet2, 'CONTRIBUTOR DETAILS');
+
+      // Set print repeating header rows
+      if (!workbook.Workbook) workbook.Workbook = {};
+      workbook.Workbook.Names = [
+        {
+          Name: '_xlnm.Print_Titles',
+          Ref: "'TAKAFUL REPORT'!$1:$2",
+          Sheet: 0
+        },
+        {
+          Name: '_xlnm.Print_Titles',
+          Ref: "'CONTRIBUTOR DETAILS'!$1:$4",
+          Sheet: 1
+        }
+      ];
 
       const fileFilter = selectedModule ? selectedModule.name.replace(/\s+/g, '_') : 'All';
       XLSX.writeFile(workbook, `Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.xlsx`);
@@ -214,44 +589,101 @@ const Reports = () => {
     if (!report) return;
     setExportingPDF(true);
     try {
-      const totalPages = (report.additionalPivotRows && report.additionalPivotRows.length > 0 ? 3 : 2) + 1;
       const doc = new jsPDF({
         orientation: 'p',
         unit: 'mm',
         format: 'a4'
       });
 
-      // =========================================================================
-      // PAGE 1: Management Summary Report
-      // =========================================================================
-      
-      // Top accent banner
-      doc.setFillColor(10, 15, 30);
-      doc.rect(0, 0, 210, 35, 'F');
+      // Register Roboto font in jsPDF VFS
+      doc.addFileToVFS('Roboto-Regular.ttf', ROBOTO_FONT_BASE64);
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+      doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+      doc.setFont('Roboto');
 
-      // Title
-      doc.setTextColor(245, 197, 24); // gold
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text(report.title, 15, 14);
+      const pageWidth = doc.internal.pageSize.width; // 210
+      const pageHeight = doc.internal.pageSize.height; // 297
+      const margin = 15;
+      let currentY = 48;
 
-      // Subtitle
-      doc.setTextColor(255, 255, 255);
+      // Layout helper: ensure there is enough vertical space or add a page
+      const ensureSpace = (heightNeeded) => {
+        if (currentY + heightNeeded > pageHeight - margin) {
+          doc.addPage();
+          // Running page header on pages 2+
+          doc.setDrawColor(13, 27, 42);
+          doc.setLineWidth(0.3);
+          doc.line(15, 15, 195, 15);
+          
+          doc.setFont('Roboto', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(report.title, 15, 12);
+          doc.text(report.subtitle, 195, 12, { align: 'right' });
+          
+          currentY = 22; // Start Y on new page
+        }
+      };
+
+      // Header block on Page 1 (Centered title and subtitle)
+      doc.setFont('Roboto', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(13, 27, 42); // Dark Blue
+      doc.text(report.title, 105, 23, { align: 'center' });
+
+      doc.setFont('Roboto', 'normal');
       doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.text(report.subtitle, 15, 20);
+      doc.setTextColor(100, 100, 100);
+      doc.text(report.subtitle, 105, 30, { align: 'center' });
 
-      // Reduced banner height - no metadata line
-      // (metadata line removed per cleanup)
+      // Shared table style rules (Print-first, dark gray borders, light gray headers)
+      const tableOptions = {
+        theme: 'grid',
+        styles: { 
+          fontSize: 10, 
+          cellPadding: 2.1, // ~6px padding
+          valign: 'middle', 
+          lineColor: [120, 120, 120], 
+          lineWidth: 0.15,
+          textColor: [0, 0, 0],
+          font: 'Roboto'
+        },
+        headStyles: { 
+          fillColor: [240, 240, 240], 
+          textColor: [0, 0, 0], 
+          fontSize: 11, 
+          fontStyle: 'bold', 
+          halign: 'center',
+          lineColor: [100, 100, 100], 
+          lineWidth: 0.3,
+          font: 'Roboto'
+        },
+        margin: { left: 15, right: 15 },
+        tableWidth: 180
+      };
 
-      // Set starting height for side-by-side tables
-      let y1 = 45;
+      // Helper to render section title text
+      const renderSectionHeader = (title) => {
+        ensureSpace(28); // Ensure header + minimum space for starting table fits
+        doc.setFont('Roboto', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(13, 27, 42); // Dark Blue section titles
+        doc.text(title, 15, currentY);
+        currentY += 5; // Spacing below title
+      };
 
-      // New Sponsors Added (Left Column)
-      doc.setTextColor(10, 15, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('NEW SPONSORS ADDED', 15, y1 - 2);
+      // =========================================================================
+      // TOP SECTION: NEW SPONSORS ADDED & COLLECTION SUMMARY (2-column layout)
+      // =========================================================================
+      ensureSpace(15 + 4 * 8); // 4 rows * ~8mm + header/title padding
+      doc.setFont('Roboto', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(13, 27, 42);
+      doc.text('NEW SPONSORS ADDED', 15, currentY);
+      doc.text('COLLECTION SUMMARY', 110, currentY);
+      currentY += 5;
+
+      const pageBeforeSec1 = doc.internal.getCurrentPageInfo().pageNumber;
 
       const sponsorsRows = [
         ['Premium Tier', String(report.sponsorsSummary.premium)],
@@ -260,29 +692,6 @@ const Reports = () => {
         ['Total New Sponsors', String(report.sponsorsSummary.total)]
       ];
 
-      doc.autoTable({
-        body: sponsorsRows,
-        startY: y1,
-        margin: { left: 15 },
-        tableWidth: 85,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        columnStyles: { 0: { fontStyle: 'normal' }, 1: { fontStyle: 'bold', halign: 'right' } },
-        didParseCell: function(data) {
-          if (data.row.index === 3) {
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fillColor = [245, 245, 245];
-          }
-        }
-      });
-      const yLeft1 = doc.lastAutoTable.finalY;
-
-      // Collection Summary (Right Column)
-      doc.setTextColor(10, 15, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('COLLECTION SUMMARY', 110, y1 - 2);
-
       const collectionRows = [
         ['Global Collection', '₹' + report.collectionSummary.global.toLocaleString('en-IN')],
         ['PRO Collection', '₹' + report.collectionSummary.pro.toLocaleString('en-IN')],
@@ -290,284 +699,259 @@ const Reports = () => {
         ['Total Collection', '₹' + report.collectionSummary.total.toLocaleString('en-IN')]
       ];
 
+      // Left Table: New Sponsors
       doc.autoTable({
-        body: collectionRows,
-        startY: y1,
-        margin: { left: 110 },
+        ...tableOptions,
+        body: sponsorsRows,
+        startY: currentY,
+        margin: { left: 15 },
         tableWidth: 85,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        columnStyles: { 0: { fontStyle: 'normal' }, 1: { fontStyle: 'bold', halign: 'right' } },
+        columnStyles: {
+          0: { fontStyle: 'normal' },
+          1: { fontStyle: 'bold', halign: 'right', cellWidth: 25 }
+        },
         didParseCell: function(data) {
           if (data.row.index === 3) {
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.fillColor = [245, 245, 245];
           }
-        }
+        },
+        rowPageBreak: 'avoid'
       });
-      const yRight1 = doc.lastAutoTable.finalY;
+      const leftY1 = doc.lastAutoTable.finalY;
+      const leftPage1 = doc.internal.getCurrentPageInfo().pageNumber;
 
-      // Section 2 and Section 4 starting Y
-      const y2 = Math.max(yLeft1, yRight1) + 8;
+      // Switch back to start page
+      doc.setPage(pageBeforeSec1);
 
-      // Sponsors Added by PRO / Office (Left Column)
-      doc.setTextColor(10, 15, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('SPONSORS ADDED BY RECRUITER', 15, y2 - 2);
-
-      const recruitersRows = report.sponsorsByRecruiter.length > 0 
-        ? report.sponsorsByRecruiter.slice(0, 8).map(s => [s.name, String(s.count)])
-        : [['No sponsors added', '0']];
-
+      // Right Table: Collection Summary
       doc.autoTable({
-        head: [['PRO / Office Recruiter', 'Sponsors']],
-        body: recruitersRows,
-        startY: y2,
-        margin: { left: 15 },
-        tableWidth: 85,
-        theme: 'striped',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [13, 27, 42], fontSize: 8 },
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
-      });
-      const yLeft2 = doc.lastAutoTable.finalY;
-
-      // Allocated Project Distributions (Right Column)
-      doc.setTextColor(10, 15, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('ALLOCATED PROJECT DISTRIBUTIONS', 110, y2 - 2);
-
-      const distRemaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-      const allocRows = [
-        { head: 'Takaful', amount: distRemaining },
-        ...(report.collectionDistribution?.distributions || [])
-      ]
-        .filter(item => item.amount > 0)
-        .slice(0, 8)
-        .map(item => [item.head, '₹' + item.amount.toLocaleString('en-IN')]);
-
-      const allocRowsFinal = allocRows.length > 0 ? allocRows : [['No distributions recorded', '₹0']];
-
-      doc.autoTable({
-        head: [['Head', 'Amount']],
-        body: allocRowsFinal,
-        startY: y2,
+        ...tableOptions,
+        body: collectionRows,
+        startY: currentY,
         margin: { left: 110 },
         tableWidth: 85,
-        theme: 'striped',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [13, 27, 42], fontSize: 8 },
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+        columnStyles: {
+          0: { fontStyle: 'normal' },
+          1: { fontStyle: 'bold', halign: 'right', cellWidth: 35 }
+        },
+        didParseCell: function(data) {
+          if (data.row.index === 3) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [245, 245, 245];
+          }
+        },
+        rowPageBreak: 'avoid'
       });
-      const yRight2 = doc.lastAutoTable.finalY;
+      const rightY1 = doc.lastAutoTable.finalY;
+      const rightPage1 = doc.internal.getCurrentPageInfo().pageNumber;
 
-      // Rankings and Grand Total Section
-      const yRankings = Math.max(yLeft2, yRight2) + 8;
-      let yRankingsEnd = yRankings;
+      const maxPage1 = Math.max(leftPage1, rightPage1);
+      doc.setPage(maxPage1);
+      currentY = (leftPage1 === rightPage1) 
+        ? Math.max(leftY1, rightY1) + 12 
+        : (leftPage1 > rightPage1 ? leftY1 : rightY1) + 12;
 
-      if (report.additionalPivotRows && report.additionalPivotRows.length > 0) {
-        // Direct Collections Received Through PROs
-        doc.setTextColor(10, 15, 30);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('DIRECT COLLECTIONS RECEIVED THROUGH PROs', 15, yRankings - 2);
-
-        const pivotHeaders = [['PRO Name', ...report.additionalColumns, 'Total Amount']];
-        const pivotRows = report.additionalPivotRows.slice(0, 6).map(r => {
-          const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
-          return [
-            r.proName,
-            ...report.additionalColumns.map(col => '₹' + (r[col] || 0).toLocaleString('en-IN')),
-            '₹' + rowTotal.toLocaleString('en-IN')
-          ];
-        });
-
-        doc.autoTable({
-          head: pivotHeaders,
-          body: pivotRows,
-          startY: yRankings,
-          margin: { left: 15 },
-          tableWidth: 180,
-          theme: 'striped',
-          styles: { fontSize: 6.5, cellPadding: 1.5 },
-          headStyles: { fillColor: [13, 27, 42] },
-          columnStyles: { 
-            0: { fontStyle: 'bold' },
-            ...report.additionalColumns.reduce((acc, col, idx) => {
-              acc[idx + 1] = { halign: 'right' };
-              return acc;
-            }, {}),
-            [report.additionalColumns.length + 1]: { halign: 'right', fontStyle: 'bold' }
-          }
-        });
-        yRankingsEnd = doc.lastAutoTable.finalY;
-      }
-
-      // Grand Total Highlight Box
-      const yGrandTotal = (report.additionalPivotRows && report.additionalPivotRows.length > 0 ? yRankingsEnd : yRankings) + 4;
-      doc.setFillColor(13, 27, 42); // Deep Navy background
+      // =========================================================================
+      // SECOND SECTION: RECRUITERS & PROJECT DISTRIBUTIONS (2-column layout)
+      // =========================================================================
+      const recruitersRows = report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 
+        ? report.sponsorsByRecruiter.map(s => [s.name, String(s.count)])
+        : [['No sponsors added', '0']];
       
-      if (report.additionalSubtotal > 0) {
-        doc.rect(15, yGrandTotal, 180, 18, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Total Collection: ₹${report.collectionSummary.total.toLocaleString('en-IN')}   |   Direct Collections Through PROs: ₹${report.additionalSubtotal.toLocaleString('en-IN')}`, 20, yGrandTotal + 5);
-        
-        doc.setTextColor(245, 197, 24); // gold
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`GRAND TOTAL = ₹${report.grandTotal.toLocaleString('en-IN')}`, 20, yGrandTotal + 12);
-      } else {
-        doc.rect(15, yGrandTotal, 180, 12, 'F');
-        doc.setTextColor(245, 197, 24); // gold
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`GRAND TOTAL = ₹${report.grandTotal.toLocaleString('en-IN')}`, 20, yGrandTotal + 7.5);
+      const distRemaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+      const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
+      const allocRows = [
+        ['Takaful', '₹' + distRemaining.toLocaleString('en-IN')],
+        ...otherDists.map(item => [item.head, '₹' + item.amount.toLocaleString('en-IN')])
+      ];
+
+      // Pad arrays with empty cells to keep side-by-side box heights equal
+      const maxRowsSection2 = Math.max(recruitersRows.length, allocRows.length);
+      const paddedRecruiters = [...recruitersRows];
+      while (paddedRecruiters.length < maxRowsSection2) {
+        paddedRecruiters.push(['', '']);
+      }
+      const paddedAlloc = [...allocRows];
+      while (paddedAlloc.length < maxRowsSection2) {
+        paddedAlloc.push(['', '']);
       }
 
-      // Page 1 Footer
-      doc.setTextColor(120, 120, 120);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Page 1 of ${totalPages}`, 195, 285, { align: 'right' });
+      ensureSpace(15 + maxRowsSection2 * 8); // ~8mm per row + header/title padding
+      doc.setFont('Roboto', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(13, 27, 42);
+      doc.text('SPONSORS ADDED BY RECRUITER', 15, currentY);
+      doc.text('ALLOCATED PROJECT DISTRIBUTIONS', 110, currentY);
+      currentY += 5;
 
+      const pageBeforeSec2 = doc.internal.getCurrentPageInfo().pageNumber;
+
+      // Left Table: Recruiters
+      doc.autoTable({
+        ...tableOptions,
+        head: [['PRO / OFFICE RECRUITER', 'SPONSORS COUNT']],
+        body: paddedRecruiters,
+        startY: currentY,
+        margin: { left: 15 },
+        tableWidth: 85,
+        columnStyles: {
+          0: { fontStyle: 'normal' },
+          1: { fontStyle: 'bold', halign: 'right', cellWidth: 25 }
+        },
+        rowPageBreak: 'avoid'
+      });
+      const leftY2 = doc.lastAutoTable.finalY;
+      const leftPage2 = doc.internal.getCurrentPageInfo().pageNumber;
+
+      // Switch back to start page
+      doc.setPage(pageBeforeSec2);
+
+      // Right Table: Project Distributions
+      doc.autoTable({
+        ...tableOptions,
+        head: [['HEAD', 'AMOUNT (Rs.)']],
+        body: paddedAlloc,
+        startY: currentY,
+        margin: { left: 110 },
+        tableWidth: 85,
+        columnStyles: {
+          0: { fontStyle: 'normal' },
+          1: { fontStyle: 'bold', halign: 'right', cellWidth: 35 }
+        },
+        rowPageBreak: 'avoid'
+      });
+      const rightY2 = doc.lastAutoTable.finalY;
+      const rightPage2 = doc.internal.getCurrentPageInfo().pageNumber;
+
+      const maxPage2 = Math.max(leftPage2, rightPage2);
+      doc.setPage(maxPage2);
+      currentY = (leftPage2 === rightPage2) 
+        ? Math.max(leftY2, rightY2) + 12 
+        : (leftPage2 > rightPage2 ? leftY2 : rightY2) + 12;
 
       // =========================================================================
-      // PAGE 2: Collection Distribution Report
+      // THIRD SECTION: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
       // =========================================================================
-      doc.addPage();
+      const displayColName = (col) => {
+        if (col.toLowerCase() === 'markaz') return 'MKZ';
+        return col.toUpperCase();
+      };
 
-      // Page 2 header band
-      doc.setFillColor(10, 15, 30);
-      doc.rect(0, 0, 210, 25, 'F');
+      const pivotHeaders = [['PRO NAME', ...report.additionalColumns.map(displayColName), 'TOTAL AMOUNT']];
+      const validPivotRows = (report.additionalPivotRows || []).filter(r => {
+        const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+        return total > 0;
+      });
 
-      // Title
-      doc.setTextColor(245, 197, 24);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TAKAFUL DISTRIBUTION', 15, 11);
+      const pivotRows = validPivotRows.map(r => {
+        const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+        return [
+          r.proName,
+          ...report.additionalColumns.map(col => '₹' + (r[col] || 0).toLocaleString('en-IN')),
+          '₹' + rowTotal.toLocaleString('en-IN')
+        ];
+      });
 
-      // Period metadata
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Report Period: ${report.subtitle}`, 15, 18);
+      const subtotalRowIdx = pivotRows.length;
+      pivotRows.push([
+        'Subtotal',
+        ...report.additionalColumns.map(col => {
+          const colSum = validPivotRows.reduce((sum, r) => sum + (r[col] || 0), 0);
+          return '₹' + colSum.toLocaleString('en-IN');
+        }),
+        '₹' + report.additionalSubtotal.toLocaleString('en-IN')
+      ]);
 
-      // Allocated Project Distributions Table
-      doc.setTextColor(10, 15, 30);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('ALLOCATED PROJECT DISTRIBUTIONS', 15, 30);
+      const pivotColumnStyles = {
+        0: { fontStyle: 'bold' }
+      };
+      report.additionalColumns.forEach((col, idx) => {
+        pivotColumnStyles[idx + 1] = { halign: 'right' };
+      });
+      pivotColumnStyles[report.additionalColumns.length + 1] = { halign: 'right', fontStyle: 'bold' };
 
-      const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-      const distRows = [
-        { head: 'Takaful', amount: remaining },
-        ...(report.collectionDistribution?.distributions || [])
-      ]
-        .filter(item => item.amount > 0)
-        .map(item => [item.head, '₹' + item.amount.toLocaleString('en-IN')]);
-
-      if (distRows.length === 0) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(9);
-        doc.setTextColor(120, 120, 120);
-        doc.text('No distribution records available for the selected period.', 15, 37);
-      } else {
-        const distHeaders = [['Head', 'Amount']];
-        doc.autoTable({
-          head: distHeaders,
-          body: distRows,
-          startY: 32,
-          margin: { left: 15 },
-          tableWidth: 180,
-          theme: 'striped',
-          styles: { fontSize: 8, cellPadding: 2.5 },
-          headStyles: { fillColor: [13, 27, 42] },
-          columnStyles: { 
-            0: { fontStyle: 'normal' },
-            1: { halign: 'right', fontStyle: 'bold' }
+      renderSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs');
+      doc.autoTable({
+        ...tableOptions,
+        head: pivotHeaders,
+        body: pivotRows.length > 1 ? pivotRows : [['No direct collections', '₹0']],
+        startY: currentY,
+        columnStyles: pivotColumnStyles,
+        didParseCell: function(data) {
+          if (pivotRows.length > 1 && data.row.index === subtotalRowIdx) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [245, 245, 245];
           }
-        });
-      }
-
-      // Page 2 Footer
-      doc.setTextColor(120, 120, 120);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Page 2 of ${totalPages}`, 195, 285, { align: 'right' });
-
+        }
+      });
+      currentY = doc.lastAutoTable.finalY + 10;
 
       // =========================================================================
-      // PAGE 3: Detailed Collection Report
+      // FOURTH SECTION: CATEGORY RANKINGS / RANKINGS
       // =========================================================================
-      doc.addPage();
-
-      // Page 3 header band
-      doc.setFillColor(10, 15, 30);
-      doc.rect(0, 0, 210, 25, 'F');
-
-      // Title
-      doc.setTextColor(245, 197, 24);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(report.detailedReport.title, 15, 11);
-
-      // Period metadata
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Report Period: ${report.subtitle}`, 15, 18);
-
-      const detailedHeaders = report.collectionFilterCode === 'all'
-        ? [['Category', 'Collection Amount', 'Contribution %']]
-        : [['PRO Name', 'Collection Amount', 'Contribution %', 'Status']];
+      const rankTitle = report.collectionFilterCode === 'all' ? 'CATEGORY RANKINGS' : 'RANKINGS';
+      renderSectionHeader(rankTitle);
+      
+      const isAllFilter = report.collectionFilterCode === 'all';
+      const detailedHeaders = isAllFilter
+        ? [['RANK', 'CATEGORY', 'COLLECTION AMOUNT', 'CONTRIBUTION %']]
+        : [['RANK', 'PRO NAME', 'COLLECTION AMOUNT', 'CONTRIBUTION %', 'STATUS']];
 
       const sortedDetailedRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
       const detailedRows = sortedDetailedRows.map(r => {
-        if (report.collectionFilterCode === 'all') {
-          return [r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`];
+        if (isAllFilter) {
+          return [String(r.rank), r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`];
         } else {
-          return [r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`, r.status.toUpperCase()];
+          return [String(r.rank), r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`, (r.status || '').toUpperCase()];
         }
       });
 
       doc.autoTable({
+        ...tableOptions,
         head: detailedHeaders,
         body: detailedRows,
-        startY: 32,
-        margin: { left: 15 },
-        tableWidth: 180,
-        theme: 'striped',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [13, 27, 42] },
-        columnStyles: { 
-          0: { fontStyle: 'bold' },
-          1: { halign: 'right', fontStyle: 'bold' },
-          2: { halign: 'right' }
+        startY: currentY,
+        columnStyles: isAllFilter ? {
+          0: { halign: 'center', cellWidth: 20 },
+          1: { fontStyle: 'bold' },
+          2: { halign: 'right', fontStyle: 'bold', cellWidth: 50 },
+          3: { halign: 'right', cellWidth: 35 }
+        } : {
+          0: { halign: 'center', cellWidth: 20 },
+          1: { fontStyle: 'bold' },
+          2: { halign: 'right', fontStyle: 'bold', cellWidth: 40 },
+          3: { halign: 'right', cellWidth: 30 },
+          4: { halign: 'center', cellWidth: 25 }
         }
       });
+      currentY = doc.lastAutoTable.finalY + 10;
 
-      const yDetailedEnd = doc.lastAutoTable.finalY || 200;
+      // =========================================================================
+      // GRAND TOTAL FOOTER BLOCK
+      // =========================================================================
+      ensureSpace(14);
+      doc.setDrawColor(13, 27, 42); // Dark Blue border
+      doc.setLineWidth(0.5);
+      doc.setFillColor(255, 255, 255); // White background
+      doc.rect(15, currentY, 180, 8, 'FD');
+      
+      doc.setTextColor(13, 27, 42); // Dark Blue text
+      doc.setFont('Roboto', 'bold');
+      doc.setFontSize(10);
+      doc.text(`GRAND TOTAL : ₹${report.grandTotal.toLocaleString('en-IN')}`, 105, currentY + 5.3, { align: 'center' });
 
-      // Table Footer summary
-      doc.setFillColor(240, 240, 240);
-      doc.rect(15, yDetailedEnd + 2, 180, 10, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Total Contributors: ${report.detailedReport.totalContributors}`, 20, yDetailedEnd + 8);
-      doc.text(`Total Collection: ₹${report.detailedReport.totalCollection.toLocaleString('en-IN')}`, 190, yDetailedEnd + 8, { align: 'right' });
-
-      // Page 3 Footer
-      doc.setTextColor(120, 120, 120);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Page 3 of ${totalPages}`, 195, 285, { align: 'right' });
-
-
+      // =========================================================================
+      // POST-PROCESSING: Dynamic Page Numbers in Footer
+      // =========================================================================
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFont('Roboto', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(120, 120, 120);
+        doc.text(`Page ${i} of ${pageCount}`, 195, 285, { align: 'right' });
+      }
 
       doc.save(`Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
     } catch (err) {
@@ -620,7 +1004,7 @@ const Reports = () => {
           /* Clean borders and typography for white paper print out */
           .print-container * {
             color: black !important;
-            border-color: #ccc !important;
+            border-color: #444 !important;
           }
           .print-container text, .print-container span, .print-container div, .print-container td {
             color: black !important;
@@ -628,19 +1012,26 @@ const Reports = () => {
           .print-container th {
             background-color: #f3f4f6 !important;
             color: black !important;
-            border-bottom: 2px solid #000 !important;
+            border-bottom: 2px solid #222 !important;
           }
           .print-container table, .print-container th, .print-container td {
-            border: 1px solid #ccc !important;
+            border: 1px solid #444 !important;
           }
-          .print-grand-total {
-            border: 2px solid #000 !important;
-            background-color: #f9fafb !important;
-            padding: 15px !important;
-            color: black !important;
+          .print-container .print-grand-total {
+            border: 2px solid #f5c518 !important;
+            background-color: #0d1b2a !important;
+            padding: 6px 20px !important;
           }
-          .print-grand-total * {
-            color: black !important;
+          .print-container .print-grand-total * {
+            color: white !important;
+          }
+          .print-container .print-grand-total .text-gold {
+            color: #f5c518 !important;
+          }
+          .report-scroll-container {
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
           }
         }
       `}} />
@@ -867,20 +1258,9 @@ const Reports = () => {
             <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between">
               <div>
                 {/* Header Section */}
-                <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-gold uppercase">{report.title}</h2>
-                    <h3 className="text-sm font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                    <div className="text-[10px] text-gray-500 font-bold tracking-wider mt-2.5 flex items-center gap-1.5 flex-wrap">
-                      <span>COLLECTION FILTER: {report.collectionFilter.toUpperCase()}</span>
-                      <span>•</span>
-                      <span>REPORT PERIOD: {report.subtitle.toUpperCase()}</span>
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right hidden sm:block">
-                    <Sparkles className="w-6 h-6 text-gold ml-auto animate-pulse" />
-                    <span className="text-[8px] uppercase tracking-widest text-gold font-bold block mt-1">Management Summary</span>
-                  </div>
+                <div className="border-b border-white/10 pb-4 mb-6 text-center">
+                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">{report.title}</h2>
+                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
                 </div>
 
                 {/* Grid layout for Sections 1 to 4 */}
@@ -888,35 +1268,35 @@ const Reports = () => {
                   {/* Left Column: Sponsors */}
                   <div className="space-y-6">
                     {/* Section 1: New Sponsors Added */}
-                    <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02]">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-3"> New Sponsors Added</h4>
+                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">NEW SPONSORS ADDED</h4>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="text-gray-400">Premium :</div>
-                        <div className="font-semibold text-right text-white">{report.sponsorsSummary.premium}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.premium}</div>
                         <div className="text-gray-400">Smart :</div>
-                        <div className="font-semibold text-right text-white">{report.sponsorsSummary.smart}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.smart}</div>
                         <div className="text-gray-400">Standard :</div>
-                        <div className="font-semibold text-right text-white">{report.sponsorsSummary.standard}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.standard}</div>
                         <div className="border-t border-white/10 pt-2 text-gray-300 font-bold">Total New Sponsors:</div>
-                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold">{report.sponsorsSummary.total}</div>
+                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.total}</div>
                       </div>
                     </div>
 
                     {/* Section 2: Sponsors Added by PRO / Office */}
-                    <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02] max-h-[220px] overflow-y-auto">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-2.5"> Sponsors Added by PRO / Office</h4>
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/10 text-gray-500 text-[10px]">
-                            <th className="pb-1.5 font-bold">PRO / Office</th>
-                            <th className="pb-1.5 text-right font-bold">Sponsors Count</th>
+                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] max-h-[220px] overflow-y-auto report-scroll-container">
+                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">SPONSORS ADDED BY RECRUITER</h4>
+                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                          <tr className="border-b-2 border-[#222]">
+                            <th className="p-[7px_8px] border border-[#444] text-center">PRO / Office</th>
+                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Sponsors Count</th>
                           </tr>
                         </thead>
                         <tbody>
                           {report.sponsorsByRecruiter.slice(0, 10).map((s, idx) => (
-                            <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.02]">
-                              <td className="py-1.5 text-gray-300">{s.name}</td>
-                              <td className="py-1.5 text-right font-semibold text-white">{s.count}</td>
+                            <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                              <td className="p-[7px_8px] border border-[#444] text-gray-300">{s.name}</td>
+                              <td className="p-[7px_8px] border border-[#444] text-right font-semibold text-white min-w-[100px] whitespace-nowrap">{s.count}</td>
                             </tr>
                           ))}
                           {report.sponsorsByRecruiter.length === 0 && (
@@ -932,51 +1312,44 @@ const Reports = () => {
                   {/* Right Column: Collections */}
                   <div className="space-y-6">
                     {/* Section 3: Collection Summary */}
-                    <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02]">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-3">3. Collection Summary</h4>
+                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">COLLECTION SUMMARY</h4>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="text-gray-400">Global Collection:</div>
-                        <div className="font-semibold text-right text-white">₹{report.collectionSummary.global.toLocaleString('en-IN')}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.global.toLocaleString('en-IN')}</div>
                         <div className="text-gray-400">PRO Collection:</div>
-                        <div className="font-semibold text-right text-white">₹{report.collectionSummary.pro.toLocaleString('en-IN')}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.pro.toLocaleString('en-IN')}</div>
                         <div className="text-gray-400">Office Collection:</div>
-                        <div className="font-semibold text-right text-white">₹{report.collectionSummary.office.toLocaleString('en-IN')}</div>
+                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.office.toLocaleString('en-IN')}</div>
                         <div className="border-t border-white/10 pt-2 text-gray-300 font-bold">Total Collection:</div>
-                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold">₹{report.collectionSummary.total.toLocaleString('en-IN')}</div>
+                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.total.toLocaleString('en-IN')}</div>
                       </div>
                     </div>
 
                     {/* Section 4: Allocated Project Distributions */}
-                    <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02] max-h-[220px] overflow-y-auto">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-2.5">4. Allocated Project Distributions</h4>
+                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] max-h-[220px] overflow-y-auto report-scroll-container">
+                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">ALLOCATED PROJECT DISTRIBUTIONS</h4>
                       {(() => {
                         const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+                        const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
                         const distList = [
                           { head: 'Takaful', amount: remaining },
-                          ...(report.collectionDistribution?.distributions || [])
-                        ].filter(item => item.amount > 0);
-
-                        if (distList.length === 0) {
-                          return (
-                            <div className="py-4 text-center text-gray-500 italic text-[11px]">
-                              No distribution records available for the selected period.
-                            </div>
-                          );
-                        }
+                          ...otherDists
+                        ];
 
                         return (
-                          <table className="w-full text-xs text-left border-collapse">
-                            <thead>
-                              <tr className="border-b border-white/10 text-gray-500 text-[10px]">
-                                <th className="pb-1.5 font-bold">Distribution Head</th>
-                                <th className="pb-1.5 text-right font-bold">Allocated Amount</th>
+                          <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                            <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                              <tr className="border-b-2 border-[#222]">
+                                <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
+                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
                               </tr>
                             </thead>
                             <tbody>
                               {distList.map((item, idx) => (
-                                <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.02]">
-                                  <td className="py-1.5 text-gray-300 font-medium">{item.head}</td>
-                                  <td className="py-1.5 text-right text-white font-bold">₹{item.amount.toLocaleString('en-IN')}</td>
+                                <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                  <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
+                                  <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -989,33 +1362,33 @@ const Reports = () => {
 
                 {/* Section 5: Detailed Direct Collections Received Through PROs */}
                 {report.additionalPivotRows && report.additionalPivotRows.length > 0 && (
-                  <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02] mt-6">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-3">
-                      5. Detailed Direct Collections Received Through PROs
+                  <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] mt-6">
+                    <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">
+                      DIRECT COLLECTIONS RECEIVED THROUGH PROs
                     </h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[10px] text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/10 text-gray-500 font-semibold uppercase tracking-wider">
-                            <th className="pb-1.5 font-bold">PRO Name</th>
+                    <div className="overflow-x-auto report-scroll-container">
+                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                          <tr className="border-b-2 border-[#222]">
+                            <th className="p-[7px_8px] border border-[#444] text-center">PRO Name</th>
                             {report.additionalColumns.map(col => (
-                              <th key={col} className="pb-1.5 text-right font-bold">{col}</th>
+                              <th key={col} className="p-[7px_8px] border border-[#444] text-center min-w-[80px] whitespace-nowrap">{col}</th>
                             ))}
-                            <th className="pb-1.5 text-right font-bold">Total Amount</th>
+                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Total Amount</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                           {report.additionalPivotRows.slice(0, 6).map((r, idx) => {
                             const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
                             return (
-                              <tr key={idx} className="text-gray-300 hover:bg-white/[0.01]">
-                                <td className="py-1.5 font-semibold text-white">{r.proName}</td>
+                              <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
+                                <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.proName}</td>
                                 {report.additionalColumns.map(col => (
-                                  <td key={col} className="py-1.5 text-right text-gray-400">
+                                  <td key={col} className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[80px] whitespace-nowrap">
                                     ₹{(r[col] || 0).toLocaleString('en-IN')}
                                   </td>
                                 ))}
-                                <td className="py-1.5 text-right font-bold text-gold">
+                                <td className="p-[7px_8px] border border-[#444] text-right font-bold text-gold min-w-[100px] whitespace-nowrap">
                                   ₹{rowTotal.toLocaleString('en-IN')}
                                 </td>
                               </tr>
@@ -1028,20 +1401,13 @@ const Reports = () => {
                 )}
 
                 {/* Section 6: Grand Total Highlight Box */}
-                <div className="print-grand-total border-2 border-gold/30 bg-gradient-to-r from-gold/10 to-gold/5 rounded-xl p-5 text-center mt-6 shadow-md shadow-gold/5">
-                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                    6. Grand Total
-                  </div>
-                  {report.additionalSubtotal > 0 && (
-                    <div className="text-[11px] text-gray-300 mb-1.5 flex items-center justify-center gap-1.5 flex-wrap">
-                      <span>Total Collection: <strong className="text-white">₹{report.collectionSummary.total.toLocaleString('en-IN')}</strong></span>
-                      <span className="text-gold">•</span>
-                      <span>Direct Collections Through PROs: <strong className="text-white">₹{report.additionalSubtotal.toLocaleString('en-IN')}</strong></span>
-                    </div>
-                  )}
-                  <div className="text-xl sm:text-2xl font-black text-gold tracking-wide">
-                    GRAND TOTAL = ₹{report.grandTotal.toLocaleString('en-IN')}
-                  </div>
+                <div className="print-grand-total border-2 border-[#f5c518] bg-[#0d1b2a] rounded-lg py-[6px] px-[20px] text-center mt-6 flex items-center justify-center gap-3">
+                  <span className="text-[14px] sm:text-[16px] font-bold text-gold uppercase tracking-wider">
+                    GRAND TOTAL :
+                  </span>
+                  <span className="text-[16px] sm:text-[20px] font-bold text-white tracking-wide">
+                    ₹{report.grandTotal.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 
@@ -1053,8 +1419,7 @@ const Reports = () => {
                   <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
                 </div>
                 <div className="text-right text-[8px] text-gray-500 font-medium">
-                  <span>Takaful Report Engine v2.0</span>
-                  <span className="block mt-0.5">Page 1 of {totalPages}</span>
+                  <span>Page 1 of {totalPages}</span>
                 </div>
               </div>
             </div>
@@ -1063,53 +1428,35 @@ const Reports = () => {
             <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
               <div>
                 {/* Header Section */}
-                <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-gold uppercase">TAKAFUL DISTRIBUTION</h2>
-                    <h3 className="text-sm font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                    <div className="text-[10px] text-gray-500 font-bold tracking-wider mt-2.5 flex items-center gap-1.5 flex-wrap">
-                      <span>COLLECTION FILTER: {report.collectionFilter.toUpperCase()}</span>
-                      <span>•</span>
-                      <span>REPORT PERIOD: {report.subtitle.toUpperCase()}</span>
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right hidden sm:block">
-                    <Share2 className="w-6 h-6 text-gold ml-auto animate-pulse" />
-                    <span className="text-[8px] uppercase tracking-widest text-gold font-bold block mt-1">Distribution</span>
-                  </div>
+                <div className="border-b border-white/10 pb-4 mb-6 text-center">
+                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">TAKAFUL DISTRIBUTION</h2>
+                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
                 </div>
 
                 {/* Distribution Summary Table */}
-                <div className="border border-white/10 rounded-xl p-4 bg-white/[0.02]">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-gold mb-3">Allocated Project Distributions</h4>
+                <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                  <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">ALLOCATED PROJECT DISTRIBUTIONS</h4>
                   {(() => {
                     const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+                    const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
                     const distList = [
                       { head: 'Takaful', amount: remaining },
-                      ...(report.collectionDistribution?.distributions || [])
-                    ].filter(item => item.amount > 0);
-
-                    if (distList.length === 0) {
-                      return (
-                        <div className="py-6 text-center text-gray-500 italic text-[11px]">
-                          No distribution records available for the selected period.
-                        </div>
-                      );
-                    }
+                      ...otherDists
+                    ];
 
                     return (
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/10 text-gray-500 text-[10px]">
-                            <th className="pb-1.5 font-bold">Distribution Head</th>
-                            <th className="pb-1.5 text-right font-bold">Allocated Amount</th>
+                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                          <tr className="border-b-2 border-[#222]">
+                            <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
+                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                           {distList.map((item, idx) => (
-                            <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.02]">
-                              <td className="py-2 text-gray-300 font-medium">{item.head}</td>
-                              <td className="py-2 text-right font-bold text-white">₹{item.amount.toLocaleString('en-IN')}</td>
+                            <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                              <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
+                              <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1127,8 +1474,7 @@ const Reports = () => {
                   <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
                 </div>
                 <div className="text-right text-[8px] text-gray-500 font-medium">
-                  <span>Takaful Report Engine v2.0</span>
-                  <span className="block mt-0.5">Page 2 of {totalPages}</span>
+                  <span>Page 2 of {totalPages}</span>
                 </div>
               </div>
             </div>
@@ -1136,41 +1482,35 @@ const Reports = () => {
             {/* PAGE 3: Detailed Collection Report */}
             <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
               <div>
-                <div className="border-b border-white/10 pb-4 mb-6">
-                  <h2 className="text-xl sm:text-2xl font-extrabold tracking-wider text-gold uppercase">
+                <div className="border-b border-white/10 pb-4 mb-6 text-center">
+                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">
                     {report.detailedReport.title}
                   </h2>
-                  <div className="text-[10px] text-gray-500 font-bold tracking-wider mt-2.5 flex items-center gap-1.5 flex-wrap">
-                    <span>REPORT PERIOD: {report.subtitle.toUpperCase()}</span>
-                    <span>•</span>
-                    <span>GENERATED ON: {new Date(report.generatedAt).toLocaleDateString()}</span>
-                  </div>
+                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
                 </div>
 
-                <div className="overflow-x-auto mt-6">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-white/10 text-gray-500 font-semibold uppercase tracking-wider bg-white/[0.01]">
-                        <th className="px-3 py-2 font-bold text-[10px]">Rank</th>
-                        <th className="px-3 py-2 font-bold text-[10px]">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
-                        <th className="px-3 py-2 text-right font-bold text-[10px]">Collection Amount</th>
-                        <th className="px-3 py-2 text-right font-bold text-[10px]">Contribution %</th>
-                        {report.collectionFilterCode !== 'all' && <th className="px-3 py-2 text-right font-bold text-[10px]">Status</th>}
+                <div className="overflow-x-auto mt-6 report-scroll-container">
+                  <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                    <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                      <tr className="border-b-2 border-[#222]">
+                        <th className="p-[7px_8px] border border-[#444] text-center">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
+                        <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Collection Amount</th>
+                        <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Contribution %</th>
+                        {report.collectionFilterCode !== 'all' && <th className="p-[7px_8px] border border-[#444] text-center">Status</th>}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {report.detailedReport.rows.map(r => (
-                        <tr key={r.rank} className="text-gray-300 hover:bg-white/[0.01]">
-                          <td className="px-3 py-2.5 font-bold text-gold">#{r.rank}</td>
-                          <td className="px-3 py-2.5 font-semibold text-white">{r.name}</td>
-                          <td className="px-3 py-2.5 text-right font-bold text-white">₹{r.amount.toLocaleString('en-IN')}</td>
-                          <td className="px-3 py-2.5 text-right text-gray-300">{r.pct}%</td>
+                    <tbody>
+                      {[...report.detailedReport.rows].sort((a, b) => b.amount - a.amount).map(r => (
+                        <tr key={r.name} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
+                          <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.name}</td>
+                          <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{r.amount.toLocaleString('en-IN')}</td>
+                          <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[100px] whitespace-nowrap">{r.pct}%</td>
                           {report.collectionFilterCode !== 'all' && (
-                            <td className="px-3 py-2.5 text-right">
+                            <td className="p-[7px_8px] border border-[#444] text-center">
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                                 r.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
                               }`}>
-                                {r.status}
+                                {r.status.toUpperCase()}
                               </span>
                             </td>
                           )}
@@ -1188,8 +1528,7 @@ const Reports = () => {
                   <div className="mt-1">Total Collection: <strong className="text-gold">₹{report.detailedReport.totalCollection.toLocaleString('en-IN')}</strong></div>
                 </div>
                 <div className="text-right text-[9px] text-gray-500 font-medium">
-                  <span>Takaful Report Engine v2.0</span>
-                  <span className="block mt-0.5">Page 3 of {totalPages}</span>
+                  <span>Page 3 of {totalPages}</span>
                 </div>
               </div>
             </div>

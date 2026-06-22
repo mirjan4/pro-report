@@ -28,6 +28,7 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import AnimatedCounter from '../components/AnimatedCounter';
+import { ROBOTO_FONT_BASE64 } from '../assets/font';
 
 const MONTHS = [
   'April', 'May', 'June', 'July', 'August', 'September',
@@ -90,7 +91,7 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
     const wb = XLSX.utils.book_new();
     const summaryData = catData.categoryBreakdown.map(c => ({
       Category: c.name,
-      'Amount (INR)': c.value,
+      'Amount (₹)': c.value,
       'Contribution %': c.pct
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryData), 'Category Summary');
@@ -108,18 +109,23 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
   const exportPDF = () => {
     if (!catData) return;
     const doc = new jsPDF();
+    doc.addFileToVFS('Roboto-Regular.ttf', ROBOTO_FONT_BASE64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+    doc.setFont('Roboto');
+
     doc.setFontSize(16);
     doc.text(`Collection Categories Comparison — ${selectedFY?.label || 'All Years'}`, 14, 15);
     doc.setFontSize(9);
     doc.text(`Scope: ${month === 'All' ? 'Full Year' : month} | Generated: ${new Date().toLocaleDateString()}`, 14, 22);
 
     doc.autoTable({
-      head: [['Category', 'Amount (INR)', 'Contribution %']],
+      head: [['Category', 'Amount (₹)', 'Contribution %']],
       body: catData.categoryBreakdown.map(c => [c.name, `₹${c.value.toLocaleString('en-IN')}`, `${c.pct}%`]),
       startY: 28,
       theme: 'grid',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [13, 27, 42] }
+      styles: { fontSize: 9, font: 'Roboto' },
+      headStyles: { fillColor: [13, 27, 42], font: 'Roboto' }
     });
     doc.save(`Category_Comparison_${selectedFY?.year || 'All'}.pdf`);
   };
@@ -134,6 +140,12 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
 
   const cats = catData.categoryBreakdown;
   const mods = catData.modules;
+  const activeCats = cats.filter(c => c.value > 0);
+  const activeMods = mods.filter(mod => {
+    const cat = cats.find(c => c.code === mod.code);
+    return cat ? cat.value > 0 : false;
+  });
+  const activeMonthsData = catData.monthlyByCategory.filter(row => row.total > 0);
 
   // ── Bar Chart ────────────────────────────────────────────────────────────────
   const barOption = {
@@ -153,7 +165,7 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
     grid: { left: '4%', right: '4%', bottom: '8%', top: '10%', containLabel: true },
     xAxis: {
       type: 'category',
-      data: cats.map(c => c.name),
+      data: activeCats.map(c => c.name),
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
       axisLabel: { color: '#9ca3af', fontSize: 11 }
     },
@@ -166,7 +178,7 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
     series: [{
       type: 'bar',
       barWidth: '45%',
-      data: cats.map(c => ({
+      data: activeCats.map(c => ({
         value: c.value,
         itemStyle: {
           color: {
@@ -204,7 +216,7 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
       itemStyle: { borderRadius: 10, borderColor: '#0a0f1d', borderWidth: 2 },
       label: { show: false },
       emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold', formatter: '{b}\n{d}%', color: '#fff' } },
-      data: cats.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
+      data: activeCats.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
     }]
   };
 
@@ -219,11 +231,11 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
       borderWidth: 1,
       textStyle: { color: '#fff', fontSize: 10 }
     },
-    legend: { top: '2%', textStyle: { color: '#9ca3af', fontSize: 10 }, data: mods.map(m => m.name) },
+    legend: { top: '2%', textStyle: { color: '#9ca3af', fontSize: 10 }, data: activeMods.map(m => m.name) },
     grid: { left: '3%', right: '4%', bottom: '10%', top: '15%', containLabel: true },
     xAxis: {
       type: 'category',
-      data: MONTHS.map(m => m.substring(0, 3)),
+      data: activeMonthsData.map(row => row.month.substring(0, 3)),
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
       axisLabel: { color: '#9ca3af', fontSize: 10 }
     },
@@ -233,14 +245,14 @@ const CategoryComparison = ({ selectedFY, selectedModule }) => {
       splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)' } },
       axisLabel: { color: '#9ca3af', formatter: v => v >= 100000 ? `${(v / 100000).toFixed(1)}L` : v }
     },
-    series: mods.map(mod => ({
+    series: activeMods.map(mod => ({
       name: mod.name,
       type: 'bar',
       stack: 'total',
       barWidth: '55%',
       itemStyle: { color: mod.color, borderRadius: [0, 0, 0, 0] },
       emphasis: { focus: 'series' },
-      data: catData.monthlyByCategory.map(row => row[mod.code] || 0)
+      data: activeMonthsData.map(row => row[mod.code] || 0)
     }))
   };
 
@@ -487,6 +499,8 @@ const MonthlyComparison = () => {
   const [loading, setLoading] = useState(true);
   const [searchRankings, setSearchRankings] = useState('');
   const [proDropdownOpen, setProDropdownOpen] = useState(false);
+  const [topLimit, setTopLimit] = useState(10);
+  const [chartView, setChartView] = useState('bar');
   const dropdownRef = useRef(null);
 
   // Chart refs
@@ -570,7 +584,7 @@ const MonthlyComparison = () => {
     if (!data) return;
     const rankingSheetData = data.rankings.map(r => ({
       Rank: r.rank, Name: r.name, Designation: r.designation, Area: r.area,
-      [`Collection in ${data.selectedMonth} (INR)`]: r.amount, Status: r.status
+      [`Collection in ${data.selectedMonth} (₹)`]: r.amount, Status: r.status
     }));
     const winnersSheetData = data.monthlyWinners.map(w => ({
       Month: w.month,
@@ -598,6 +612,11 @@ const MonthlyComparison = () => {
   const exportPDF = () => {
     if (!data) return;
     const doc = new jsPDF();
+    doc.addFileToVFS('Roboto-Regular.ttf', ROBOTO_FONT_BASE64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
+    doc.setFont('Roboto');
+
     doc.setFontSize(16);
     doc.text(`PRO Monthly Analysis: ${data.selectedMonth} (${selectedFY?._id === 'all' ? 'All Years' : selectedFY?.label})`, 14, 15);
     doc.setFontSize(10);
@@ -606,20 +625,20 @@ const MonthlyComparison = () => {
     doc.setFontSize(12);
     doc.text('Growth Analysis Summary:', 14, 35);
     doc.setFontSize(9);
-    doc.text(`- Current Month (${data.growthAnalysis.currentMonth}) Total: INR ${data.growthAnalysis.currentTotal.toLocaleString('en-IN')}`, 16, 42);
-    doc.text(`- Previous Month (${data.growthAnalysis.prevMonth}) Total: INR ${data.growthAnalysis.prevTotal.toLocaleString('en-IN')}`, 16, 47);
-    doc.text(`- Delta Index: INR ${data.growthAnalysis.diff.toLocaleString('en-IN')} (${data.growthAnalysis.pct >= 0 ? '+' : ''}${data.growthAnalysis.pct}%)`, 16, 52);
+    doc.text(`- Current Month (${data.growthAnalysis.currentMonth}) Total: ₹${data.growthAnalysis.currentTotal.toLocaleString('en-IN')}`, 16, 42);
+    doc.text(`- Previous Month (${data.growthAnalysis.prevMonth}) Total: ₹${data.growthAnalysis.prevTotal.toLocaleString('en-IN')}`, 16, 47);
+    doc.text(`- Delta Index: ₹${data.growthAnalysis.diff.toLocaleString('en-IN')} (${data.growthAnalysis.pct >= 0 ? '+' : ''}${data.growthAnalysis.pct}%)`, 16, 52);
     doc.setFontSize(12);
     doc.text(`${data.selectedMonth} Performance Rankings (Top 10)`, 14, 62);
-    const tableColumn = ['Rank', 'Name', 'Designation', 'Area', 'Collection (INR)', 'Status'];
+    const tableColumn = ['Rank', 'Name', 'Designation', 'Area', 'Collection (₹)', 'Status'];
     const tableRows = data.rankings.slice(0, 10).map(r => [r.rank, r.name, r.designation, r.area, r.amount.toLocaleString('en-IN'), r.status]);
-    doc.autoTable({ head: [tableColumn], body: tableRows, startY: 67, theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: [13, 27, 42] } });
+    doc.autoTable({ head: [tableColumn], body: tableRows, startY: 67, theme: 'grid', styles: { fontSize: 8, font: 'Roboto' }, headStyles: { fillColor: [13, 27, 42], font: 'Roboto' } });
     doc.addPage();
     doc.setFontSize(14);
     doc.text('Monthly Winners (Best Performers per Month)', 14, 15);
-    const winnersColumn = ['Month', 'Winner Name', 'Designation', 'Area', 'Collection (INR)'];
+    const winnersColumn = ['Month', 'Winner Name', 'Designation', 'Area', 'Collection (₹)'];
     const winnersRows = data.monthlyWinners.map(w => [w.month, w.winner ? w.winner.name : 'No Collection', w.winner ? w.winner.designation : '-', w.winner ? w.winner.area : '-', w.winner ? w.winner.amount.toLocaleString('en-IN') : '0']);
-    doc.autoTable({ head: [winnersColumn], body: winnersRows, startY: 22, theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: [13, 27, 42] } });
+    doc.autoTable({ head: [winnersColumn], body: winnersRows, startY: 22, theme: 'grid', styles: { fontSize: 8, font: 'Roboto' }, headStyles: { fillColor: [13, 27, 42], font: 'Roboto' } });
     doc.save(`PRO_Monthly_Comparison_${data.selectedMonth}_${selectedFY?._id === 'all' ? 'All-Years' : selectedFY?.year}.pdf`);
   };
 
@@ -636,11 +655,85 @@ const MonthlyComparison = () => {
     p.area.toLowerCase().includes(searchRankings.toLowerCase())
   );
 
-  const barNames = data.rankings.map(r => r.name);
-  const barValues = data.rankings.map(r => r.amount);
+  // Helper to shorten names
+  const shortenName = (name) => {
+    if (!name) return '';
+    if (name.startsWith('Others')) return name;
+    const parts = name.split(/\s+/);
+    if (parts.length > 1) {
+      return parts[0] + '...';
+    }
+    if (name.length > 8) {
+      return name.substring(0, 8) + '...';
+    }
+    return name;
+  };
+
+  // Helper to format amount in Lakhs
+  const formatAmountLakhs = (val) => {
+    if (val >= 100000) {
+      return `₹${(val / 100000).toFixed(1)}L`;
+    }
+    return `₹${val.toLocaleString('en-IN')}`;
+  };
+
+  // Data processing for breakdown chart: filter out zeros, sort descending, group remaining into "Others (count)"
+  const getProcessedBreakdownData = () => {
+    if (!data || !data.rankings) return { names: [], values: [] };
+
+    // 1. Filter out zero collections
+    const nonZeroRankings = data.rankings.filter(r => r.amount > 0);
+
+    // 2. Sort descending
+    const sortedRankings = [...nonZeroRankings].sort((a, b) => b.amount - a.amount);
+
+    if (topLimit === 'all' || sortedRankings.length <= topLimit) {
+      return {
+        names: sortedRankings.map(r => r.name),
+        values: sortedRankings.map(r => r.amount)
+      };
+    }
+
+    // 3. Keep top N, combine the rest into "Others (count)"
+    const topN = sortedRankings.slice(0, topLimit);
+    const rest = sortedRankings.slice(topLimit);
+    const othersAmount = rest.reduce((sum, r) => sum + r.amount, 0);
+
+    const finalNames = topN.map(r => r.name);
+    const finalValues = topN.map(r => r.amount);
+
+    if (othersAmount > 0) {
+      finalNames.push(`Others (${rest.length})`);
+      finalValues.push(othersAmount);
+    }
+
+    return { names: finalNames, values: finalValues };
+  };
+
+  const { names: barNames, values: barValues } = getProcessedBreakdownData();
+
+  const topContributor = data.rankings && data.rankings.length > 0 
+    ? [...data.rankings].sort((a, b) => b.amount - a.amount).find(r => r.amount > 0)
+    : null;
+
+  const getInsightText = () => {
+    if (!data || !data.rankings || data.rankings.length === 0) return '';
+    const sorted = [...data.rankings].filter(r => r.amount > 0).sort((a, b) => b.amount - a.amount);
+    if (sorted.length === 0) return '';
+    const top3Sum = sorted.slice(0, 3).reduce((sum, r) => sum + r.amount, 0);
+    const total = data.growthAnalysis.currentTotal || 1;
+    const pct = Math.round((top3Sum / total) * 100);
+    return `Top 3 contributors generated ${pct}% of total collections this month.`;
+  };
+  const insightText = getInsightText();
 
   const cylinderOption = {
     backgroundColor: 'transparent',
+    animation: true,
+    animationDuration: 750,
+    animationEasing: 'cubicOut',
+    animationDurationUpdate: 750,
+    animationEasingUpdate: 'cubicOut',
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -650,14 +743,51 @@ const MonthlyComparison = () => {
       textStyle: { color: '#fff', fontSize: 11 },
       formatter: (params) => {
         const val = params[0].value;
-        return `<div class="p-1 font-sans"><p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">${params[0].name}</p><p class="text-sm font-extrabold text-gold mt-1">₹${val.toLocaleString('en-IN')}</p></div>`;
+        const fullName = params[0].name;
+        
+        if (fullName.startsWith('Others')) {
+          const match = fullName.match(/\((\d+)\)/);
+          const count = match ? match[1] : 'N/A';
+          return `
+            <div class="p-2.5 font-sans min-w-[180px]">
+              <p class="text-sm font-extrabold text-gray-300 border-b border-white/10 pb-1.5 mb-1.5">Others Group</p>
+              <div class="space-y-1">
+                <p class="flex justify-between text-xs"><span class="text-gray-400">Contributors:</span> <span class="font-bold text-white">${count}</span></p>
+                <p class="flex justify-between text-xs"><span class="text-gray-400">Combined:</span> <span class="font-bold text-gold">₹${val.toLocaleString('en-IN')}</span></p>
+              </div>
+            </div>
+          `;
+        }
+
+        const officer = data.rankings.find(r => r.name === fullName);
+        const rank = officer ? officer.rank : '—';
+        const totalCol = data.growthAnalysis.currentTotal || 1;
+        const contributionPct = ((val / totalCol) * 100).toFixed(1);
+
+        return `
+          <div class="p-2.5 font-sans min-w-[200px]">
+            <p class="text-sm font-extrabold text-white border-b border-white/10 pb-1.5 mb-1.5">${fullName}</p>
+            <div class="space-y-1.5 font-medium">
+              <div class="flex justify-between text-xs"><span class="text-gray-400">Collection:</span> <span class="font-bold text-gold">₹${val.toLocaleString('en-IN')}</span></div>
+              <div class="flex justify-between text-xs"><span class="text-gray-400">Rank:</span> <span class="font-bold text-white">#${rank}</span></div>
+              <div class="flex justify-between text-xs"><span class="text-gray-400">Contribution:</span> <span class="font-bold text-emerald-400">${contributionPct}%</span></div>
+              <div class="flex justify-between text-xs"><span class="text-gray-400">Category:</span> <span class="font-bold text-blue-400">${selectedModule?.name || 'Collection'}</span></div>
+            </div>
+          </div>
+        `;
       }
     },
-    grid: { left: '3%', right: '4%', bottom: '15%', top: '12%', containLabel: true },
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
     xAxis: {
       type: 'category', data: barNames,
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
-      axisLabel: { color: '#9ca3af', rotate: 35, fontSize: 10, interval: 0 }
+      axisLabel: {
+        color: '#9ca3af',
+        rotate: 0,
+        fontSize: 10,
+        interval: 0,
+        formatter: (val) => shortenName(val)
+      }
     },
     yAxis: {
       type: 'value',
@@ -668,11 +798,248 @@ const MonthlyComparison = () => {
     series: [
       {
         name: 'Collection', type: 'bar', barWidth: 25,
-        itemStyle: { color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0, colorStops: [{ offset: 0, color: 'rgba(245, 197, 24, 0.75)' }, { offset: 0.5, color: 'rgba(245, 197, 24, 1)' }, { offset: 1, color: 'rgba(212, 175, 55, 0.75)' }] } },
-        data: barValues, z: 10
+        data: barNames.map((name, idx) => {
+          const val = barValues[idx];
+          if (name.startsWith('Others')) {
+            return {
+              value: val,
+              itemStyle: {
+                color: {
+                  type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: 'rgba(156, 163, 175, 0.75)' },
+                    { offset: 0.5, color: 'rgba(156, 163, 175, 1)' },
+                    { offset: 1, color: 'rgba(107, 114, 128, 0.75)' }
+                  ]
+                }
+              }
+            };
+          }
+          if (idx === 0) {
+            return {
+              value: val,
+              itemStyle: {
+                color: {
+                  type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: 'rgba(245, 197, 24, 0.85)' },
+                    { offset: 0.5, color: 'rgba(245, 197, 24, 1)' },
+                    { offset: 1, color: 'rgba(212, 175, 55, 0.85)' }
+                  ]
+                },
+                shadowBlur: 15,
+                shadowColor: 'rgba(245, 197, 24, 0.4)'
+              }
+            };
+          }
+          if (idx === 1) {
+            return {
+              value: val,
+              itemStyle: {
+                color: {
+                  type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: 'rgba(209, 213, 219, 0.85)' },
+                    { offset: 0.5, color: 'rgba(209, 213, 219, 1)' },
+                    { offset: 1, color: 'rgba(156, 163, 175, 0.85)' }
+                  ]
+                }
+              }
+            };
+          }
+          if (idx === 2) {
+            return {
+              value: val,
+              itemStyle: {
+                color: {
+                  type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                  colorStops: [
+                    { offset: 0, color: 'rgba(180, 83, 9, 0.85)' },
+                    { offset: 0.5, color: 'rgba(217, 119, 6, 1)' },
+                    { offset: 1, color: 'rgba(146, 64, 14, 0.85)' }
+                  ]
+                }
+              }
+            };
+          }
+          return {
+            value: val,
+            itemStyle: {
+              color: {
+                type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                colorStops: [
+                  { offset: 0, color: 'rgba(59, 130, 246, 0.35)' },
+                  { offset: 0.5, color: 'rgba(59, 130, 246, 0.5)' },
+                  { offset: 1, color: 'rgba(29, 78, 216, 0.35)' }
+                ]
+              }
+            }
+          };
+        }),
+        z: 10
       },
-      { name: 'Top Cap', type: 'pictorialBar', symbol: 'ellipse', symbolSize: [25, 8], symbolPosition: 'end', symbolOffset: [0, -4], data: barValues.map(v => (v > 0 ? v : 0)), z: 12, itemStyle: { color: '#fff', opacity: 0.9 } },
-      { name: 'Bottom Cap', type: 'pictorialBar', symbol: 'ellipse', symbolSize: [25, 8], symbolPosition: 'start', symbolOffset: [0, 4], data: barValues, z: 12, itemStyle: { color: 'rgba(212, 175, 55, 1)' } }
+      {
+        name: 'Top Cap', type: 'pictorialBar', symbol: 'ellipse', symbolSize: [25, 8], symbolPosition: 'end', symbolOffset: [0, -4],
+        label: {
+          show: true,
+          position: 'top',
+          distance: 12,
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: 'bold',
+          lineHeight: 14,
+          formatter: (params) => {
+            const idx = params.dataIndex;
+            const val = typeof params.value === 'object' ? params.value.value : params.value;
+            const name = params.name;
+            if (name.startsWith('Others')) {
+              return formatAmountLakhs(val);
+            }
+            if (idx === 0) return `🥇 #1\n${formatAmountLakhs(val)}`;
+            if (idx === 1) return `🥈 #2\n${formatAmountLakhs(val)}`;
+            if (idx === 2) return `🥉 #3\n${formatAmountLakhs(val)}`;
+            if (idx < 5) return formatAmountLakhs(val);
+            return '';
+          }
+        },
+        data: barNames.map((name, idx) => {
+          const val = barValues[idx];
+          if (name.startsWith('Others')) {
+            return {
+              value: val > 0 ? val : 0,
+              itemStyle: { color: '#e5e7eb', opacity: 0.9 }
+            };
+          }
+          if (idx === 0) {
+            return {
+              value: val > 0 ? val : 0,
+              itemStyle: { color: '#fff', opacity: 0.9 }
+            };
+          }
+          if (idx === 1) {
+            return {
+              value: val > 0 ? val : 0,
+              itemStyle: { color: '#f3f4f6', opacity: 0.9 }
+            };
+          }
+          if (idx === 2) {
+            return {
+              value: val > 0 ? val : 0,
+              itemStyle: { color: '#ffedd5', opacity: 0.9 }
+            };
+          }
+          return {
+            value: val > 0 ? val : 0,
+            itemStyle: { color: 'rgba(147, 197, 253, 0.8)', opacity: 0.9 }
+          };
+        }),
+        z: 12
+      },
+      {
+        name: 'Bottom Cap', type: 'pictorialBar', symbol: 'ellipse', symbolSize: [25, 8], symbolPosition: 'start', symbolOffset: [0, 4],
+        data: barNames.map((name, idx) => {
+          const val = barValues[idx];
+          if (name.startsWith('Others')) {
+            return {
+              value: val,
+              itemStyle: { color: 'rgba(156, 163, 175, 1)' }
+            };
+          }
+          if (idx === 0) {
+            return {
+              value: val,
+              itemStyle: { color: 'rgba(212, 175, 55, 1)' }
+            };
+          }
+          if (idx === 1) {
+            return {
+              value: val,
+              itemStyle: { color: 'rgba(156, 163, 175, 1)' }
+            };
+          }
+          if (idx === 2) {
+            return {
+              value: val,
+              itemStyle: { color: 'rgba(146, 64, 14, 1)' }
+            };
+          }
+          return {
+            value: val,
+            itemStyle: { color: 'rgba(29, 78, 216, 1)' }
+          };
+        }),
+        z: 12
+      }
+    ]
+  };
+
+  const lineOption = {
+    backgroundColor: 'transparent',
+    animation: true,
+    animationDuration: 750,
+    animationEasing: 'cubicOut',
+    animationDurationUpdate: 750,
+    animationEasingUpdate: 'cubicOut',
+    tooltip: cylinderOption.tooltip,
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+    xAxis: {
+      type: 'category', data: barNames,
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
+      axisLabel: cylinderOption.xAxis.axisLabel
+    },
+    yAxis: cylinderOption.yAxis,
+    series: [
+      {
+        name: 'Collection',
+        type: 'line',
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 10,
+        itemStyle: {
+          color: (params) => {
+            const idx = params.dataIndex;
+            const name = params.name;
+            if (name.startsWith('Others')) return '#9ca3af';
+            if (idx === 0) return '#f5c518';
+            if (idx === 1) return '#d1d5db';
+            if (idx === 2) return '#b45309';
+            return '#3b82f6';
+          }
+        },
+        lineStyle: { width: 3.5, color: '#f5c518' },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(245, 197, 24, 0.25)' },
+              { offset: 1, color: 'transparent' }
+            ]
+          }
+        },
+        label: {
+          show: true,
+          position: 'top',
+          distance: 10,
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: 'bold',
+          lineHeight: 14,
+          formatter: (params) => {
+            const idx = params.dataIndex;
+            const val = params.value;
+            const name = params.name;
+            if (name.startsWith('Others')) {
+              return formatAmountLakhs(val);
+            }
+            if (idx === 0) return `🥇 #1\n${formatAmountLakhs(val)}`;
+            if (idx === 1) return `🥈 #2\n${formatAmountLakhs(val)}`;
+            if (idx === 2) return `🥉 #3\n${formatAmountLakhs(val)}`;
+            if (idx < 5) return formatAmountLakhs(val);
+            return '';
+          }
+        },
+        data: barValues
+      }
     ]
   };
 
@@ -827,22 +1194,101 @@ const MonthlyComparison = () => {
       {/* Charts */}
       <div className="flex flex-col gap-6">
         <div className="glass-card rounded-2xl p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 shrink-0">
             <h3 className="text-lg font-bold text-white flex items-center">
               <Trophy className="w-5 h-5 mr-2 text-gold" />{month} Collection Breakdown
             </h3>
-            <button onClick={() => exportChartPNG(cylinderChartRef, 'Cylinder_Chart')}
-              className="p-1.5 hover:bg-white/5 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer" title="Download PNG Chart">
-              <ImageIcon className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Top N Filter */}
+              <div className="flex items-center bg-[#0a0f1d]/60 border border-white/10 p-1 rounded-xl">
+                {[
+                  { label: 'Top 10', value: 10 },
+                  { label: 'Top 15', value: 15 },
+                  { label: 'Show All', value: 'all' }
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTopLimit(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      topLimit === opt.value
+                        ? 'bg-gold text-dark-bg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* View Switcher */}
+              <div className="flex items-center bg-[#0a0f1d]/60 border border-white/10 p-1 rounded-xl">
+                {[
+                  { label: 'Bar', value: 'bar', icon: BarChart3 },
+                  { label: 'Line', value: 'line', icon: LineChart }
+                ].map(opt => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setChartView(opt.value)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        chartView === opt.value
+                          ? 'bg-gold text-dark-bg'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button onClick={() => exportChartPNG(cylinderChartRef, 'Cylinder_Chart')}
+                className="p-1.5 hover:bg-white/5 border border-white/5 rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer" title="Download PNG Chart">
+                <ImageIcon className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div style={{ height: '500px' }} className="relative w-full">
+
+          {/* Executive Summary Card */}
+          {barValues.length > 0 && topContributor && (
+            <div className="mb-6 glass-card bg-[#0d1b2a]/30 border-white/5 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
+              <div className="absolute right-4 top-4 p-2 bg-gold/10 border border-gold/20 rounded-xl text-gold">
+                <Crown className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gold uppercase tracking-widest">Top Contributor</p>
+                <h4 className="text-xl font-extrabold text-white mt-1">{topContributor.name}</h4>
+                <p className="text-xs text-gray-400 mt-1">{topContributor.designation} • {topContributor.area}</p>
+              </div>
+              <div className="text-left md:text-right mt-2 md:mt-0">
+                <p className="text-2xl font-black text-gold">₹{topContributor.amount.toLocaleString('en-IN')}</p>
+                <p className="text-xs font-bold text-emerald-400 mt-1">
+                  {((topContributor.amount / (data.growthAnalysis.currentTotal || 1)) * 100).toFixed(1)}% of total collection
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div style={{ height: '580px' }} className="relative w-full">
             {barValues.length > 0 ? (
-              <ReactECharts ref={cylinderChartRef} option={cylinderOption} style={{ width: '100%', height: '100%' }} theme="dark-theme" notMerge={true} lazyUpdate={true} />
+              <ReactECharts ref={cylinderChartRef} option={chartView === 'bar' ? cylinderOption : lineOption} style={{ width: '100%', height: '100%' }} theme="dark-theme" notMerge={true} lazyUpdate={true} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-500 italic">No collections reported this month</div>
             )}
           </div>
+
+          {/* Insight Banner */}
+          {barValues.length > 0 && insightText && (
+            <div className="mt-6 p-4 rounded-xl border border-blue-500/10 bg-blue-500/5 text-blue-400 flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 shrink-0" />
+              <p className="text-xs font-semibold leading-relaxed">
+                <span className="font-bold uppercase tracking-wider text-[10px] bg-blue-500/10 px-2 py-0.5 rounded mr-2">Insight</span>
+                {insightText}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="glass-card rounded-2xl p-6 flex flex-col">
