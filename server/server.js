@@ -30,6 +30,7 @@ app.use('/api/sponsors', require('./routes/sponsors'));
 app.use('/api/collection-heads', require('./routes/collectionHeads'));
 app.use('/api/distribution-heads', require('./routes/distributionHeads'));
 app.use('/api/distributions', require('./routes/distributions'));
+app.use('/api/presentations', require('./routes/presentations'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));

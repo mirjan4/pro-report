@@ -15,14 +15,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 const MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
 
 const SponsorEntry = () => {
-  const { financialYears, selectedFY, pros, refreshMetadata } = useApp();
+  const { user, financialYears, selectedFY, pros, refreshMetadata } = useApp();
   const [sponsors, setSponsors] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
-  const [activeTab, setActiveTab] = useState('registry'); // 'registry', 'reports', 'bulk'
+  const [activeTab, setActiveTab] = useState(() => user?.role === 'analytics' ? 'reports' : 'registry'); // 'registry', 'reports', 'bulk'
   const [expandedMonths, setExpandedMonths] = useState({});
 
   const allMonthsCollapsed = Object.values(expandedMonths).every(val => !val);
@@ -98,6 +98,12 @@ const SponsorEntry = () => {
   useEffect(() => {
     if (activePros.length > 0) setProId(activePros[0]._id);
   }, [pros]);
+
+  useEffect(() => {
+    if (user?.role === 'analytics') {
+      setActiveTab('reports');
+    }
+  }, [user]);
 
   const openAddForm = (defaultMonth) => {
     setEditingEntry(null);
@@ -479,7 +485,7 @@ const SponsorEntry = () => {
             <p className="text-gray-400 text-sm">Monthly sponsor counts by PRO/Office recruiters — {selectedFY?.label}</p>
           </div>
         </div>
-        {activeTab === 'registry' && (
+        {activeTab === 'registry' && user?.role === 'admin' && (
           <button
             onClick={() => openAddForm(null)}
             className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 glow-btn text-dark-bg bg-gradient-to-r from-gold to-gold-accent hover:shadow-lg cursor-pointer"
@@ -504,7 +510,7 @@ const SponsorEntry = () => {
           { id: 'registry', label: 'Sponsor Registry', icon: Layers },
           { id: 'reports', label: 'Sponsor Reports', icon: BarChart3 },
           { id: 'bulk', label: 'Bulk Import', icon: Upload }
-        ].map(t => (
+        ].filter(t => t.id !== 'bulk' || user?.role === 'admin').map(t => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
@@ -579,13 +585,15 @@ const SponsorEntry = () => {
                             <span className="w-px h-6 bg-white/10 hidden sm:block" />
 
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => openAddForm(m)}
-                                title={`Add entry for ${m}`}
-                                className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                              </button>
+                              {user?.role === 'admin' && (
+                                <button
+                                  onClick={() => openAddForm(m)}
+                                  title={`Add entry for ${m}`}
+                                  className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => toggleMonth(m)}
                                 className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
@@ -609,9 +617,11 @@ const SponsorEntry = () => {
                               {monthEntries.length === 0 ? (
                                 <div className="p-6 text-center text-sm text-gray-500 flex flex-col items-center gap-2">
                                   <span>No records registered for {m} yet.</span>
-                                  <button onClick={() => openAddForm(m)} className="text-xs font-bold text-gold hover:underline flex items-center gap-1 mt-1 cursor-pointer">
-                                    <Plus className="w-3 h-3" /> Add record
-                                  </button>
+                                  {user?.role === 'admin' && (
+                                    <button onClick={() => openAddForm(m)} className="text-xs font-bold text-gold hover:underline flex items-center gap-1 mt-1 cursor-pointer">
+                                      <Plus className="w-3 h-3" /> Add record
+                                    </button>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="overflow-x-auto">
@@ -625,7 +635,7 @@ const SponsorEntry = () => {
                                         <th className="px-5 py-3 text-center">Standard</th>
                                         <th className="px-5 py-3 text-center font-bold text-gold">Total</th>
                                         <th className="px-5 py-3 text-left">Notes</th>
-                                        <th className="px-5 py-3 text-center">Actions</th>
+                                        {user?.role === 'admin' && <th className="px-5 py-3 text-center">Actions</th>}
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -640,16 +650,18 @@ const SponsorEntry = () => {
                                           <td className="px-5 py-3.5 text-center font-medium">{c.standardCount}</td>
                                           <td className="px-5 py-3.5 text-center font-bold text-gold">{c.totalSponsors}</td>
                                           <td className="px-5 py-3.5 text-gray-500 max-w-[200px] truncate" title={c.notes}>{c.notes || '—'}</td>
-                                          <td className="px-5 py-3.5">
-                                            <div className="flex justify-center gap-2">
-                                              <button onClick={() => openEditForm(c)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
-                                                <Edit className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer">
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          </td>
+                                          {user?.role === 'admin' && (
+                                            <td className="px-5 py-3.5">
+                                              <div className="flex justify-center gap-2">
+                                                <button onClick={() => openEditForm(c)} className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                                                  <Edit className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer">
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          )}
                                         </tr>
                                       ))}
                                       {/* Month subtotal row */}
@@ -659,7 +671,7 @@ const SponsorEntry = () => {
                                         <td className="px-5 py-3 text-center text-gold">{smartTotal}</td>
                                         <td className="px-5 py-3 text-center text-gold">{standardTotal}</td>
                                         <td className="px-5 py-3 text-center text-gold font-bold bg-gold/5">{monthTotal}</td>
-                                        <td className="px-5 py-3" colSpan="2"></td>
+                                        <td className="px-5 py-3" colSpan={user?.role === 'admin' ? 2 : 1}></td>
                                       </tr>
                                     </tbody>
                                   </table>

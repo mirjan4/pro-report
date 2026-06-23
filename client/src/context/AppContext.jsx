@@ -132,6 +132,23 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      const res = await client.post('/api/auth/change-password', { currentPassword, newPassword });
+      if (res.data.success) {
+        const updatedUser = { ...user, needsPasswordChange: false };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { success: true };
+      }
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to change password'
+      };
+    }
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -166,6 +183,7 @@ export const AppProvider = ({ children }) => {
         loading,
         login,
         logout,
+        changePassword,
         refreshMetadata: loadMetadata
       }}
     >

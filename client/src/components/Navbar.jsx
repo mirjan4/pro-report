@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,7 +23,8 @@ import {
   ChevronLeft,
   ChevronRight,
   HeartHandshake,
-  Share2
+  Share2,
+  Presentation
 } from 'lucide-react';
 
 // Map module icon code to lucide icon component
@@ -57,7 +58,21 @@ const Navbar = () => {
     const saved = localStorage.getItem('sidebarAdminExpanded');
     return saved ? saved === 'true' : true;
   });
+  const [sponsorsExpanded, setSponsorsExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarSponsorsExpanded');
+    return saved ? saved === 'true' : true;
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.role === 'analytics') {
+      const saved = localStorage.getItem('sidebarCollapsed');
+      const isLargeScreen = window.innerWidth >= 1280;
+      if (saved === null || isLargeScreen) {
+        setIsCollapsed(true);
+      }
+    }
+  }, [user]);
 
   const toggleAnalytics = () => {
     setAnalyticsExpanded(prev => {
@@ -71,6 +86,14 @@ const Navbar = () => {
     setAdminExpanded(prev => {
       const next = !prev;
       localStorage.setItem('sidebarAdminExpanded', String(next));
+      return next;
+    });
+  };
+
+  const toggleSponsors = () => {
+    setSponsorsExpanded(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebarSponsorsExpanded', String(next));
       return next;
     });
   };
@@ -96,6 +119,7 @@ const Navbar = () => {
     { path: '/monthly-comparison', label: 'Monthly Comparison', icon: LineChart },
     { path: '/insights', label: 'AI Insights', icon: BrainCircuit },
     { path: '/reports', label: 'Reports', icon: FileSpreadsheet },
+    { path: '/presentation-builder', label: 'Presentation Builder', icon: Presentation, isSubItem: true },
   ];
 
   const adminItems = [
@@ -117,7 +141,7 @@ const Navbar = () => {
         title={isCollapsed ? item.label : ''}
         className={({ isActive }) =>
           `flex items-center px-4 py-3 rounded-xl transition-all duration-200 group ${
-            isCollapsed ? 'justify-center' : 'space-x-3'
+            isCollapsed ? 'justify-center' : (item.isSubItem ? 'pl-8 space-x-3' : 'space-x-3')
           } ${
             isActive
               ? 'bg-gradient-to-r from-premium-blue/40 to-premium-blue/10 border-l-4 border-gold text-white shadow-lg shadow-premium-blue/10'
@@ -174,7 +198,7 @@ const Navbar = () => {
       <aside
         className={`fixed inset-y-0 left-0 lg:static z-50 bg-gradient-to-b from-[#0a1128] to-[#040814] border-r border-white/5 flex flex-col justify-between transform transition-all duration-300 lg:transform-none lg:h-screen lg:sticky lg:top-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } ${isCollapsed ? 'w-72 lg:w-20' : 'w-72 lg:w-72'}`}
+        } ${isCollapsed ? 'w-[260px] lg:w-[70px]' : 'w-[260px] lg:w-[260px]'}`}
       >
         <div>
           {/* Logo & Header */}
@@ -195,7 +219,7 @@ const Navbar = () => {
             <button
               onClick={() => setAdminSectionExpanded(prev => !prev)}
               className={`w-full flex items-center bg-[#0d1b2a]/60 border border-white/10 hover:border-gold/30 rounded-xl px-3 py-2.5 text-xs font-bold text-gold transition-colors duration-200 cursor-pointer ${isCollapsed ? 'justify-center' : 'justify-between'}`}
-              title={isCollapsed ? 'Admin Control' : ''}
+              title={isCollapsed ? (user?.role === 'admin' ? 'Admin Control' : 'Reports & Analytics') : ''}
             >
               <div className="flex items-center space-x-2">
                 {adminSectionExpanded ? (
@@ -203,7 +227,7 @@ const Navbar = () => {
                 ) : (
                   <ChevronUp className="w-3.5 h-3.5 text-gold shrink-0" />
                 )}
-                {!isCollapsed && <span>Admin</span>}
+                {!isCollapsed && <span>{user?.role === 'admin' ? 'Admin' : 'Reports & Analytics'}</span>}
               </div>
             </button>
 
@@ -228,7 +252,7 @@ const Navbar = () => {
                     {!isCollapsed && (
                       <div className="overflow-hidden animate-fadeIn">
                         <h3 className="text-sm font-semibold text-white truncate">{user?.fullName || 'Administrator'}</h3>
-                        <p className="text-xs text-gold/80 font-medium capitalize">{user?.role || 'Admin'} Account</p>
+                        <p className="text-xs text-gold/80 font-medium capitalize">{user?.role === 'analytics' ? 'Analytics Viewer Account' : `${user?.role || 'Admin'} Account`}</p>
                       </div>
                     )}
                   </div>
@@ -329,26 +353,19 @@ const Navbar = () => {
         {/* Main Navigation Links */}
         <div className="p-4 space-y-1.5 overflow-y-auto no-scrollbar max-h-[calc(100vh-380px)]">
           {/* Analytics Section Header */}
-          <button
-            onClick={toggleAnalytics}
-            className={`w-full flex items-center justify-between py-2 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer ${
-              isCollapsed ? 'justify-center px-0 mb-2' : 'px-4 mb-2'
-            }`}
-            title={isCollapsed ? (analyticsExpanded ? 'Collapse Analytics' : 'Expand Analytics') : ''}
-          >
-            {!isCollapsed ? (
-              <>
-                <span>Analytics</span>
-                <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${analyticsExpanded ? 'rotate-90' : ''}`} />
-              </>
-            ) : (
-              <ChevronRight className={`w-4 h-4 text-gold transition-transform duration-300 ${analyticsExpanded ? 'rotate-90' : ''}`} />
-            )}
-          </button>
+          {!isCollapsed && (
+            <button
+              onClick={toggleAnalytics}
+              className="w-full flex items-center justify-between py-2 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer px-4 mb-2"
+            >
+              <span>Analytics</span>
+              <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${analyticsExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          )}
 
           {/* Analytics Links */}
           <AnimatePresence initial={false}>
-            {analyticsExpanded && (
+            {(analyticsExpanded || isCollapsed) && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
@@ -361,29 +378,51 @@ const Navbar = () => {
             )}
           </AnimatePresence>
 
+          {/* Sponsors Section Header for Analytics role */}
+          {user?.role === 'analytics' && (
+            <>
+              {!isCollapsed && (
+                <button
+                  onClick={toggleSponsors}
+                  className="w-full flex items-center justify-between py-2 mt-4 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer px-4 mb-2"
+                >
+                  <span>Sponsors</span>
+                  <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${sponsorsExpanded ? 'rotate-90' : ''}`} />
+                </button>
+              )}
+
+              <AnimatePresence initial={false}>
+                {(sponsorsExpanded || isCollapsed) && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden space-y-1.5"
+                  >
+                    {renderNavLinks([{ path: '/sponsors', label: 'Sponsor Reports', icon: HeartHandshake }])}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+
           {/* Administration Section Header */}
           {user?.role === 'admin' && (
             <>
-              <button
-                onClick={toggleAdmin}
-                className={`w-full flex items-center justify-between py-2 mt-4 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer ${
-                  isCollapsed ? 'justify-center px-0 mb-2' : 'px-4 mb-2'
-                }`}
-                title={isCollapsed ? (adminExpanded ? 'Collapse Administration' : 'Expand Administration') : ''}
-              >
-                {!isCollapsed ? (
-                  <>
-                    <span>Administration</span>
-                    <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${adminExpanded ? 'rotate-90' : ''}`} />
-                  </>
-                ) : (
-                  <ChevronRight className={`w-4 h-4 text-gold transition-transform duration-300 ${adminExpanded ? 'rotate-90' : ''}`} />
-                )}
-              </button>
+              {!isCollapsed && (
+                <button
+                  onClick={toggleAdmin}
+                  className="w-full flex items-center justify-between py-2 mt-4 text-left text-[10px] text-gray-500 font-bold uppercase tracking-wider hover:text-white transition-colors duration-150 group cursor-pointer px-4 mb-2"
+                >
+                  <span>Administration</span>
+                  <ChevronRight className={`w-3.5 h-3.5 text-gold transition-transform duration-300 ${adminExpanded ? 'rotate-90' : ''}`} />
+                </button>
+              )}
 
               {/* Administration Links */}
               <AnimatePresence initial={false}>
-                {adminExpanded && (
+                {(adminExpanded || isCollapsed) && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}

@@ -57,6 +57,7 @@ router.post('/change-password', async (req, res) => {
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) return res.status(400).json({ success: false, message: 'Current password incorrect' });
     user.password = newPassword;
+    user.needsPasswordChange = false;
     await user.save();
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (err) {
