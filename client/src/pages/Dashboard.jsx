@@ -138,6 +138,10 @@ const Dashboard = () => {
     );
   }
 
+  const proModule = kpiData?.modules?.find(m => m.code === 'pro');
+  const ofcModule = kpiData?.modules?.find(m => m.code === 'ofc');
+  const glbModule = kpiData?.modules?.find(m => m.code === 'glb');
+
   return (
     <div className="p-6 space-y-6">
       {/* Top Welcome Title */}
@@ -168,15 +172,44 @@ const Dashboard = () => {
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard title="Total Collection" value={kpiData?.total || 0} icon={Coins}
-          trend={kpiData?.growthPct >= 0 ? 'up' : 'down'} trendValue={Math.abs(kpiData?.growthPct || 0)} subtitle="This FY" />
-        <KPICard title="Previous Year" value={kpiData?.prevTotal || 0} icon={TrendingUp}
-          trend={kpiData?.growthPct >= 0 ? 'up' : 'down'} trendValue={Math.abs(kpiData?.growthPct || 0)} subtitle="Last FY" />
-        <KPICard title="Contributing PROs" value={kpiData?.contributingPros || 0} icon={UserCheck}
-          isCurrency={false} subtitle={`of ${kpiData?.activePros || 0} active`} />
-        <KPICard title="Growth" value={kpiData?.growthPct || 0} icon={Percent}
-          trend={kpiData?.growthPct >= 0 ? 'up' : 'down'} trendValue={Math.abs(kpiData?.growthPct || 0)}
-          isCurrency={false} suffix="%" subtitle="vs Previous Year" />
+        <KPICard 
+          title="PRO Collection" 
+          value={proModule?.total || 0} 
+          icon={UserCheck}
+          trend={proModule?.prevTotal > 0 ? (proModule.growthPct >= 0 ? 'up' : 'down') : undefined} 
+          trendValue={proModule?.prevTotal > 0 ? Math.abs(proModule.growthPct) : undefined} 
+          subtitle={proModule?.prevTotal > 0 
+            ? `vs Last FY (${kpiData?.contributingPros || 0}/${kpiData?.activePros || 0} active PROs)` 
+            : `(${kpiData?.contributingPros || 0}/${kpiData?.activePros || 0} active PROs)`
+          } 
+        />
+        <KPICard 
+          title="Office Collection" 
+          value={ofcModule?.total || 0} 
+          icon={Building}
+          trend={ofcModule?.prevTotal > 0 ? (ofcModule.growthPct >= 0 ? 'up' : 'down') : undefined} 
+          trendValue={ofcModule?.prevTotal > 0 ? Math.abs(ofcModule.growthPct) : undefined} 
+          subtitle={ofcModule?.prevTotal > 0 ? 'vs Last FY' : 'No Prev Year data'} 
+        />
+        <KPICard 
+          title="Global Collection" 
+          value={glbModule?.total || 0} 
+          icon={Globe}
+          trend={glbModule?.prevTotal > 0 ? (glbModule.growthPct >= 0 ? 'up' : 'down') : undefined} 
+          trendValue={glbModule?.prevTotal > 0 ? Math.abs(glbModule.growthPct) : undefined} 
+          subtitle={glbModule?.prevTotal > 0 ? 'vs Last FY' : 'No Prev Year data'} 
+        />
+        <KPICard 
+          title="Total Collection" 
+          value={kpiData?.totalAll || 0} 
+          icon={Coins}
+          trend={kpiData?.prevTotalAll > 0 ? (kpiData.growthPctAll >= 0 ? 'up' : 'down') : undefined} 
+          trendValue={kpiData?.prevTotalAll > 0 ? Math.abs(kpiData.growthPctAll) : undefined} 
+          subtitle={kpiData?.prevTotalAll > 0 
+            ? `vs Last FY: ₹${Math.round(kpiData.prevTotalAll).toLocaleString('en-IN')}` 
+            : 'vs Previous Year'
+          } 
+        />
       </div>
 
       {/* Charts & Mini-Rankings Grid */}

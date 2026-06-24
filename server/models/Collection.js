@@ -71,7 +71,7 @@ collectionSchema.pre('save', function(next) {
 });
 
 // Search indexes
-collectionSchema.index({ module: 1, year: 1, month: 1, pro: 1 });
+collectionSchema.index({ module: 1, year: 1, month: 1, pro: 1 }, { unique: true });
 collectionSchema.index({ module: 1, pro: 1, month: 1, year: 1 });
 collectionSchema.index({ module: 1, date: 1, pro: 1 });
 collectionSchema.index({ module: 1, pro: 1 });

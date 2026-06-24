@@ -46,9 +46,6 @@ router.get('/kpi', protect, async (req, res) => {
     const { financialYear, module: moduleId } = req.query;
     let fyId = financialYear || 'all';
 
-    const collections = await getModuleCollections(fyId, moduleId);
-    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
-
     let currentFY;
     if (fyId === 'all') {
       currentFY = {
@@ -70,32 +67,68 @@ router.get('/kpi', protect, async (req, res) => {
       };
     }
 
-    let growthPct = 0, prevTotal = 0;
+    // Fetch collections for all modules (for the KPI cards breakdown)
+    const collectionsAll = await getModuleCollections(fyId, null);
+    const totalAll = collectionsAll.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+    // Fetch previous year collections for all modules
+    let prevColsAll = [];
+    let prevTotalAll = 0;
     if (fyId !== 'all' && currentFY && currentFY.startYear) {
       const prevStartYear = currentFY.startYear - 1;
-      const prevEndYear = prevStartYear + 1;
-      const prevFY = {
-        _id: prevStartYear.toString(),
-        year: `${prevStartYear}-${String(prevEndYear).substring(2)}`,
-        label: `FY ${prevStartYear}-${String(prevEndYear).substring(2)}`,
-        startYear: prevStartYear,
-        endYear: prevEndYear,
-        isActive: false
-      };
-      const prevCols = await getModuleCollections(prevFY._id, moduleId);
-      prevTotal = prevCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
-      growthPct = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+      prevColsAll = await getModuleCollections(prevStartYear.toString(), null);
+      prevTotalAll = prevColsAll.reduce((s, c) => s + (c.totalAmount || 0), 0);
     }
+
+    // If moduleId is filtered, we compute total/prevTotal for that module
+    const collections = moduleId 
+      ? collectionsAll.filter(c => c.module && getModuleId(c.module) === moduleId.toString())
+      : collectionsAll;
+    const total = collections.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+    const prevCols = moduleId
+      ? prevColsAll.filter(c => c.module && getModuleId(c.module) === moduleId.toString())
+      : prevColsAll;
+    const prevTotal = prevCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+    const growthPct = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+    const growthPctAll = prevTotalAll > 0 ? ((totalAll - prevTotalAll) / prevTotalAll) * 100 : 0;
 
     const proFilter = { status: 'active' };
     if (moduleId) proFilter.module = moduleId;
     const activePros = await Pro.countDocuments(proFilter);
     const contributingPros = [...new Set(collections.filter(c => c.pro).map(c => c.pro._id ? c.pro._id.toString() : c.pro.toString()))].length;
 
+    // Calculate breakdown for all modules
+    const modulesData = [];
+    const modules = await Module.find({}).sort({ sortOrder: 1, name: 1 }).lean();
+    modules.forEach(mod => {
+      const modIdStr = mod._id.toString();
+      const currModCols = collectionsAll.filter(c => c.module && getModuleId(c.module) === modIdStr);
+      const currModSum = currModCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+      const prevModCols = prevColsAll.filter(c => c.module && getModuleId(c.module) === modIdStr);
+      const prevModSum = prevModCols.reduce((s, c) => s + (c.totalAmount || 0), 0);
+
+      const modGrowth = prevModSum > 0 ? ((currModSum - prevModSum) / prevModSum) * 100 : 0;
+
+      modulesData.push({
+        _id: modIdStr,
+        name: mod.name,
+        code: mod.code,
+        color: mod.color || '#d4af37',
+        total: currModSum,
+        prevTotal: prevModSum,
+        growthPct: Math.round(modGrowth * 100) / 100
+      });
+    });
+
     res.json({ success: true, data: {
       total, growthPct: Math.round(growthPct * 100) / 100,
       prevTotal, activePros, contributingPros,
-      zeroPros: Math.max(0, activePros - contributingPros), fyLabel: currentFY?.label
+      zeroPros: Math.max(0, activePros - contributingPros), fyLabel: currentFY?.label,
+      totalAll, prevTotalAll, growthPctAll: Math.round(growthPctAll * 100) / 100,
+      modules: modulesData
     }});
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
