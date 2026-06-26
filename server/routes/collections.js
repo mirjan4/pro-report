@@ -5,33 +5,65 @@ const Pro = require('../models/Pro');
 const Module = require('../models/Module');
 const { protect, adminOnly } = require('../middleware/auth');
 
+const CALENDAR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Helper: returns true if entry month/year is >= PRO joining month/year ──
+function isEntryEligible(month, year, proDoc) {
+  if (!proDoc.joiningMonth || !proDoc.joiningYear) return true; // No joining date set → allow all
+  const entryDate   = new Date(Date.UTC(Number(year),             CALENDAR_MONTHS.indexOf(month),              1));
+  const joiningDate = new Date(Date.UTC(Number(proDoc.joiningYear), CALENDAR_MONTHS.indexOf(proDoc.joiningMonth), 1));
+  return entryDate >= joiningDate;
+}
+
 // GET /api/collections
 router.get('/', protect, async (req, res) => {
   try {
-    const { financialYear, month, year, pro, module, page = 1, limit = 200 } = req.query;
+    const { financialYear, month, year, pro, module, page = 1, limit = 2000 } = req.query;
     const filter = {};
-    
+
+    // ── FY date range filter ──
+    let fyDateRange = null;
     if (financialYear && financialYear !== 'all') {
       const startYear = parseInt(financialYear);
       const endYear = startYear + 1;
-      const start = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
-      const end = new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999)); // March 31
+      const start = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0));   // April 1
+      const end   = new Date(Date.UTC(endYear,   2, 31, 23, 59, 59, 999)); // March 31
       filter.date = { $gte: start, $lte: end };
+      fyDateRange = { start: start.toISOString(), end: end.toISOString() };
     }
-    
-    if (month) filter.month = month;
-    if (year) filter.year = Number(year);
-    if (pro) filter.pro = pro;
+
+    if (month)  filter.month  = month;
+    if (year)   filter.year   = Number(year);
+    if (pro)    filter.pro    = pro;
     if (module) filter.module = module;
-    
+
+    // ── DEBUG LOGGING (dev mode) ──
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n[GET /api/collections] ─────────────────────────');
+      console.log('  Query params  :', { financialYear, month, year, pro, module, page, limit });
+      console.log('  MongoDB filter:', JSON.stringify(filter, null, 2));
+      if (fyDateRange) console.log('  FY date range :', fyDateRange);
+    }
+
     const total = await Collection.countDocuments(filter);
     const collections = await Collection.find(filter)
       .populate('pro', 'name area status')
       .populate('module', 'name code color icon')
       .sort({ date: 1, proName: 1 })
-      .skip((page - 1) * limit)
+      .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit))
       .lean();
+
+    // ── DEBUG LOGGING (dev mode) ──
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`  Total matching docs in DB : ${total}`);
+      console.log(`  Docs returned (after limit): ${collections.length}`);
+      if (collections.length > 0) {
+        const sample = collections[0];
+        console.log('  Sample doc    :', { month: sample.month, year: sample.year, date: sample.date, financialYearLabel: sample.financialYearLabel });
+      }
+      console.log('────────────────────────────────────────────────\n');
+    }
 
     // Attach mock financialYear object to each collection for frontend compatibility
     const formattedCollections = collections.map(c => {
@@ -53,6 +85,7 @@ router.get('/', protect, async (req, res) => {
 
     res.json({ success: true, data: formattedCollections, total });
   } catch (err) {
+    console.error('[GET /api/collections] ERROR:', err.message);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -67,6 +100,14 @@ router.post('/', protect, adminOnly, async (req, res) => {
     ]);
     if (!mod) return res.status(404).json({ success: false, message: 'Module not found' });
     if (!proDoc) return res.status(404).json({ success: false, message: 'PRO not found' });
+
+    // ── Joining Month Validation ──
+    if (!isEntryEligible(month, year, proDoc)) {
+      return res.status(400).json({
+        success: false,
+        message: `This PRO joined in ${proDoc.joiningMonth} ${proDoc.joiningYear}. Entries cannot be created for earlier months.`
+      });
+    }
 
     // Check for duplicate monthly record (One month = One record per PRO)
     const existing = await Collection.findOne({ module, pro, month, year: Number(year) });
@@ -187,6 +228,16 @@ router.post('/bulk', protect, adminOnly, async (req, res) => {
       try {
         const proDoc = await Pro.findById(entry.pro);
         if (!proDoc) throw new Error(`PRO not found for ID: ${entry.pro}`);
+
+        // ── Joining Month Validation ──
+        if (!isEntryEligible(entry.month, entry.year, proDoc)) {
+          results.failed++;
+          results.errors.push({
+            entry,
+            error: `${proDoc.name} joined in ${proDoc.joiningMonth} ${proDoc.joiningYear}. Entry for ${entry.month} ${entry.year} is not allowed.`
+          });
+          continue;
+        }
 
         const filter = {
           module: entry.module || moduleId,

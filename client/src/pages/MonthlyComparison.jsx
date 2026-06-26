@@ -583,20 +583,19 @@ const MonthlyComparison = () => {
   const exportExcel = () => {
     if (!data) return;
     const rankingSheetData = data.rankings.map(r => ({
-      Rank: r.rank, Name: r.name, Designation: r.designation, Area: r.area,
+      Rank: r.rank, Name: r.name, Designation: r.designation,
       [`Collection in ${data.selectedMonth} (₹)`]: r.amount, Status: r.status
     }));
     const winnersSheetData = data.monthlyWinners.map(w => ({
       Month: w.month,
       WinnerName: w.winner ? w.winner.name : 'No Collection',
       WinnerDesignation: w.winner ? w.winner.designation : '-',
-      WinnerArea: w.winner ? w.winner.area : '-',
       WinnerCollectionAmount: w.winner ? w.winner.amount : 0
     }));
     const trendSheetData = data.allProsTrend
       .filter(p => selectedPros.includes(p.proId))
       .map(p => {
-        const row = { Name: p.name, Designation: p.designation, Area: p.area };
+        const row = { Name: p.name, Designation: p.designation };
         MONTHS.forEach(m => { row[m] = p.monthlyAmounts[m] || 0; });
         return row;
       });
@@ -630,14 +629,14 @@ const MonthlyComparison = () => {
     doc.text(`- Delta Index: ₹${data.growthAnalysis.diff.toLocaleString('en-IN')} (${data.growthAnalysis.pct >= 0 ? '+' : ''}${data.growthAnalysis.pct}%)`, 16, 52);
     doc.setFontSize(12);
     doc.text(`${data.selectedMonth} Performance Rankings (Top 10)`, 14, 62);
-    const tableColumn = ['Rank', 'Name', 'Designation', 'Area', 'Collection (₹)', 'Status'];
-    const tableRows = data.rankings.slice(0, 10).map(r => [r.rank, r.name, r.designation, r.area, r.amount.toLocaleString('en-IN'), r.status]);
+    const tableColumn = ['Rank', 'Name', 'Designation', 'Collection (₹)', 'Status'];
+    const tableRows = data.rankings.slice(0, 10).map(r => [r.rank, r.name, r.designation, r.amount.toLocaleString('en-IN'), r.status]);
     doc.autoTable({ head: [tableColumn], body: tableRows, startY: 67, theme: 'grid', styles: { fontSize: 8, font: 'Roboto' }, headStyles: { fillColor: [13, 27, 42], font: 'Roboto' } });
     doc.addPage();
     doc.setFontSize(14);
     doc.text('Monthly Winners (Best Performers per Month)', 14, 15);
-    const winnersColumn = ['Month', 'Winner Name', 'Designation', 'Area', 'Collection (₹)'];
-    const winnersRows = data.monthlyWinners.map(w => [w.month, w.winner ? w.winner.name : 'No Collection', w.winner ? w.winner.designation : '-', w.winner ? w.winner.area : '-', w.winner ? w.winner.amount.toLocaleString('en-IN') : '0']);
+    const winnersColumn = ['Month', 'Winner Name', 'Designation', 'Collection (₹)'];
+    const winnersRows = data.monthlyWinners.map(w => [w.month, w.winner ? w.winner.name : 'No Collection', w.winner ? w.winner.designation : '-', w.winner ? w.winner.amount.toLocaleString('en-IN') : '0']);
     doc.autoTable({ head: [winnersColumn], body: winnersRows, startY: 22, theme: 'grid', styles: { fontSize: 8, font: 'Roboto' }, headStyles: { fillColor: [13, 27, 42], font: 'Roboto' } });
     doc.save(`PRO_Monthly_Comparison_${data.selectedMonth}_${selectedFY?._id === 'all' ? 'All-Years' : selectedFY?.year}.pdf`);
   };
@@ -652,7 +651,7 @@ const MonthlyComparison = () => {
 
   const filteredRankings = data.rankings.filter(p =>
     p.name.toLowerCase().includes(searchRankings.toLowerCase()) ||
-    p.area.toLowerCase().includes(searchRankings.toLowerCase())
+    (p.designation && p.designation.toLowerCase().includes(searchRankings.toLowerCase()))
   );
 
   // Helper to shorten names
@@ -1135,7 +1134,7 @@ const MonthlyComparison = () => {
                       </span>
                       <div className="truncate">
                         <div className="font-semibold">{p.name}</div>
-                        <div className="text-[10px] text-gray-500 truncate">{p.area}</div>
+                        <div className="text-[10px] text-gray-500 truncate">{p.designation || 'PRO Officer'}</div>
                       </div>
                     </div>
                   </button>
@@ -1182,7 +1181,7 @@ const MonthlyComparison = () => {
           {selectedMonthWinner ? (
             <div className="mt-2">
               <h4 className="text-xl font-bold text-white truncate">{selectedMonthWinner.name}</h4>
-              <p className="text-xs text-gray-400">{selectedMonthWinner.designation} • {selectedMonthWinner.area}</p>
+              <p className="text-xs text-gray-400">{selectedMonthWinner.designation || 'PRO Officer'}</p>
               <span className="inline-block mt-2 text-sm font-extrabold text-gold">₹{selectedMonthWinner.amount.toLocaleString('en-IN')}</span>
             </div>
           ) : (
@@ -1260,7 +1259,7 @@ const MonthlyComparison = () => {
               <div>
                 <p className="text-[10px] font-bold text-gold uppercase tracking-widest">Top Contributor</p>
                 <h4 className="text-xl font-extrabold text-white mt-1">{topContributor.name}</h4>
-                <p className="text-xs text-gray-400 mt-1">{topContributor.designation} • {topContributor.area}</p>
+                <p className="text-xs text-gray-400 mt-1">{topContributor.designation || 'PRO Officer'}</p>
               </div>
               <div className="text-left md:text-right mt-2 md:mt-0">
                 <p className="text-2xl font-black text-gold">₹{topContributor.amount.toLocaleString('en-IN')}</p>
@@ -1323,7 +1322,7 @@ const MonthlyComparison = () => {
               <div>
                 <span className="text-[10px] uppercase font-extrabold tracking-widest text-gray-500 block mb-1">{w.month}</span>
                 {w.winner ? (
-                  <><h4 className="font-bold text-sm text-white truncate">{w.winner.name}</h4><p className="text-[10px] text-gray-400 mt-0.5 truncate">{w.winner.area}</p></>
+                  <><h4 className="font-bold text-sm text-white truncate">{w.winner.name}</h4><p className="text-[10px] text-gray-400 mt-0.5 truncate">{w.winner.designation || 'PRO Officer'}</p></>
                 ) : (
                   <p className="text-xs text-gray-500 italic mt-1 font-semibold">No entries</p>
                 )}
@@ -1343,7 +1342,7 @@ const MonthlyComparison = () => {
           <div className="relative w-full md:w-80">
             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500"><Search className="w-4 h-4" /></span>
             <input type="text" value={searchRankings} onChange={(e) => setSearchRankings(e.target.value)}
-              placeholder="Search rankings by name or area..."
+              placeholder="Search rankings by name or designation..."
               className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-gold transition-colors" />
           </div>
         </div>
@@ -1365,7 +1364,9 @@ const MonthlyComparison = () => {
                       {pro.amount > 0 ? (pro.rank <= 3 ? <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gold/10 text-gold text-xs font-extrabold border border-gold/30">{pro.rank}</span> : pro.rank) : '-'}
                     </td>
                     <td className="p-4 font-bold text-white">{pro.name}</td>
-                    <td className="p-4 text-right font-extrabold text-white">₹{pro.amount.toLocaleString('en-IN')}</td>
+                    <td className="p-4 text-right font-extrabold text-white">
+                      {pro.eligible ? `₹${pro.amount.toLocaleString('en-IN')}` : 'N/A'}
+                    </td>
                     <td className="p-4 text-center">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${pro.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
                         {pro.status}

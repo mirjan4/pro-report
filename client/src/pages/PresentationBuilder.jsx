@@ -1019,7 +1019,7 @@ const PresentationBuilder = () => {
                                   <div>
                                     <span className="text-xs font-bold text-gold block">#{idx+1}</span>
                                     <div className="font-bold text-white text-xs mt-1 truncate">{c.name}</div>
-                                    <span className="text-[9px] text-gray-500 block mt-0.5 truncate">{c.area}</span>
+                                    <span className="text-[9px] text-gray-500 block mt-0.5 truncate">{c.designation || 'PRO Officer'}</span>
                                   </div>
                                   <span className="text-xs font-extrabold text-gold block mt-3">{formatRupee(c.total)}</span>
                                 </div>
@@ -1065,7 +1065,7 @@ const PresentationBuilder = () => {
                                     <span className="font-bold text-gold">#{idx+1}</span>
                                     <div>
                                       <div className="font-bold text-white">{r.name}</div>
-                                      <div className="text-[10px] text-gray-500">{r.area} — {r.category}</div>
+                                      <div className="text-[10px] text-gray-500">{r.designation || 'PRO Officer'} — {r.category}</div>
                                     </div>
                                   </div>
                                   <span className="font-extrabold text-gold">{r.total} Sponsors</span>
@@ -1335,7 +1335,7 @@ const PresentationBuilder = () => {
                         <div>
                           <span className="text-xs font-bold text-gold block">#{idx+1}</span>
                           <div className="font-bold text-white text-xs mt-1 truncate">{c.name}</div>
-                          <span className="text-[9px] text-gray-500 block mt-0.5 truncate">{c.area}</span>
+                          <span className="text-[9px] text-gray-500 block mt-0.5 truncate">{c.designation || 'PRO Officer'}</span>
                         </div>
                         <span className="text-xs font-extrabold text-gold block mt-3">{formatRupee(c.total)}</span>
                       </div>
@@ -1381,7 +1381,7 @@ const PresentationBuilder = () => {
                           <span className="font-bold text-gold">#{idx+1}</span>
                           <div>
                             <div className="font-bold text-white">{r.name}</div>
-                            <div className="text-[10px] text-gray-500">{r.area} — {r.category}</div>
+                            <div className="text-[10px] text-gray-500">{r.designation || 'PRO Officer'} — {r.category}</div>
                           </div>
                         </div>
                         <span className="font-extrabold text-gold">{r.total} Sponsors</span>

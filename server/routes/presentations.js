@@ -201,7 +201,7 @@ async function compilePresentationData(presentation) {
     sponsorProMap[p._id.toString()] = {
       proId: p._id.toString(),
       name: p.name,
-      area: p.area || 'N/A',
+      designation: p.designation || 'PRO Officer',
       premium: 0,
       smart: 0,
       standard: 0,

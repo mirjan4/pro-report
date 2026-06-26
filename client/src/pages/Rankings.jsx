@@ -256,7 +256,7 @@ const Rankings = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name or area..."
+              placeholder="Search by name..."
               className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-gold transition-colors duration-200"
             />
           </div>

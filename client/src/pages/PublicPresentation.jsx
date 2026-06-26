@@ -479,7 +479,7 @@ const PublicPresentation = () => {
                           <div>
                             <span className="text-xs font-bold text-gold block">RANK #{idx+1}</span>
                             <div className="font-bold text-white text-sm mt-2 truncate">{c.name}</div>
-                            <span className="text-[10px] text-gray-500 block mt-1 truncate">{c.area}</span>
+                            <span className="text-[10px] text-gray-500 block mt-1 truncate">{c.designation || 'PRO Officer'}</span>
                           </div>
                           <span className="text-sm font-extrabold text-gold block mt-4">{formatRupee(c.total)}</span>
                         </div>
@@ -525,7 +525,7 @@ const PublicPresentation = () => {
                             <span className="font-bold text-gold text-lg">#{idx+1}</span>
                             <div>
                               <div className="font-bold text-white text-base">{r.name}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{r.area} — {r.category}</div>
+                              <div className="text-xs text-gray-500 mt-0.5">{r.designation || 'PRO Officer'} — {r.category}</div>
                             </div>
                           </div>
                           <span className="font-extrabold text-gold text-base">{r.total} Sponsors</span>

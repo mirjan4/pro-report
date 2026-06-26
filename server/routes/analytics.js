@@ -6,6 +6,43 @@ const Module = require('../models/Module');
 const { protect } = require('../middleware/auth');
 
 const MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
+const CALENDAR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Get calendar year for a fiscal month within a given FY start year ──
+function getMonthCalendarYear(month, fyStartYear) {
+  const idx = MONTHS.indexOf(month);
+  return (idx >= 0 && idx <= 8) ? fyStartYear : fyStartYear + 1;
+}
+
+// ── Check if entry month/year is >= PRO joining month/year ──
+function isMonthEligible(month, calYear, joiningMonth, joiningYear) {
+  if (!joiningMonth || !joiningYear) return true;
+  const entryDate   = new Date(Date.UTC(calYear,             CALENDAR_MONTHS.indexOf(month),        1));
+  const joiningDate = new Date(Date.UTC(Number(joiningYear), CALENDAR_MONTHS.indexOf(joiningMonth), 1));
+  return entryDate >= joiningDate;
+}
+
+// ── Get eligible fiscal months for a PRO in a given FY ──
+function getEligibleMonths(fyStartYear, joiningMonth, joiningYear) {
+  if (!joiningMonth || !joiningYear) return [...MONTHS];
+  return MONTHS.filter(m => {
+    const calYear = getMonthCalendarYear(m, fyStartYear);
+    return isMonthEligible(m, calYear, joiningMonth, joiningYear);
+  });
+}
+// ── Get date range for a financial year ──
+function getFYDateRange(fyId) {
+  if (!fyId || fyId === 'all') {
+    const startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0));
+    const endDate = new Date(Date.UTC(2100, 11, 31, 23, 59, 59, 999));
+    return { startDate, endDate };
+  }
+  const startYear = parseInt(fyId);
+  const endYear = startYear + 1;
+  const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
+  const endDate = new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999)); // March 31
+  return { startDate, endDate };
+}
 
 function getModuleId(m) {
   if (!m) return '';
@@ -17,18 +54,6 @@ function getProId(p) {
   return p._id ? p._id.toString() : p.toString();
 }
 
-function getFYDateRange(fyId) {
-  if (!fyId || fyId === 'all') {
-    const startDate = new Date(Date.UTC(2000, 0, 1, 0, 0, 0)); // Very early start
-    const endDate = new Date(Date.UTC(2100, 11, 31, 23, 59, 59, 999)); // Very late end
-    return { startDate, endDate };
-  }
-  const startYear = parseInt(fyId);
-  const endYear = startYear + 1;
-  const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
-  const endDate = new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999)); // March 31
-  return { startDate, endDate };
-}
 
 async function getModuleCollections(fyId, moduleId) {
   let filter = {};
@@ -96,7 +121,12 @@ router.get('/kpi', protect, async (req, res) => {
 
     const proFilter = { status: 'active' };
     if (moduleId) proFilter.module = moduleId;
-    const activePros = await Pro.countDocuments(proFilter);
+    const activeProsList = await Pro.find(proFilter);
+    let activePros = activeProsList.length;
+    if (fyId !== 'all') {
+      const startYear = parseInt(fyId);
+      activePros = activeProsList.filter(p => getEligibleMonths(startYear, p.joiningMonth, p.joiningYear).length > 0).length;
+    }
     const contributingPros = [...new Set(collections.filter(c => c.pro).map(c => c.pro._id ? c.pro._id.toString() : c.pro.toString()))].length;
 
     // Calculate breakdown for all modules
@@ -330,7 +360,10 @@ router.get('/rankings', protect, async (req, res) => {
 
     const proFilter = {};
     if (moduleId) proFilter.module = moduleId;
-    const pros = await Pro.find(proFilter);
+    const allPros = await Pro.find(proFilter);
+    const pros = fyId !== 'all'
+      ? allPros.filter(p => getEligibleMonths(parseInt(fyId), p.joiningMonth, p.joiningYear).length > 0)
+      : allPros;
     const proStatusMap = {};
     pros.forEach(p => proStatusMap[p._id.toString()] = p.status);
 
@@ -441,12 +474,17 @@ router.get('/pro/:proId', protect, async (req, res) => {
       const prevCols = allPrevCollections.filter(c => c.month === month);
       const currentSum = currCols.reduce((sum, c) => sum + (c.totalAmount || 0), 0);
       const previousSum = prevCols.reduce((sum, c) => sum + (c.totalAmount || 0), 0);
+
+      const calYear = fyId !== 'all' ? getMonthCalendarYear(month, currentFY.startYear) : null;
+      const eligible = fyId !== 'all' ? isMonthEligible(month, calYear, pro.joiningMonth, pro.joiningYear) : true;
+
       return {
         month,
         index: idx,
         current: currentSum,
         previous: previousSum,
-        amount: currentSum
+        amount: currentSum,
+        eligible
       };
     });
 
@@ -459,12 +497,14 @@ router.get('/pro/:proId', protect, async (req, res) => {
     const earlyAvg = filled.slice(0, 3).reduce((s, m) => s + m.current, 0) / (filled.slice(0, 3).length || 1);
     const trend = recentAvg > earlyAvg ? 'improving' : recentAvg < earlyAvg ? 'declining' : 'stable';
 
+    const denominator = fyId !== 'all' ? (getEligibleMonths(currentFY.startYear, pro.joiningMonth, pro.joiningYear).length || 1) : 12;
+
     res.json({ success: true, data: {
       pro: pro.toObject(), total, prevTotal,
       growth: Math.round(growth * 100) / 100, monthlyBreakdown,
       peakMonth: monthlyBreakdown.find(m => m.current === maxAmt)?.month,
       lowestMonth: monthlyBreakdown.find(m => m.current === minAmt)?.month,
-      trend, consistencyScore: (filled.length / 12 * 100).toFixed(0),
+      trend, consistencyScore: (filled.length / denominator * 100).toFixed(0),
       filterMonth: filterMonth || null
     }});
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
@@ -603,7 +643,9 @@ router.get('/insights', protect, async (req, res) => {
     }
     const sorted = Object.values(proMap).sort((a, b) => b.total - a.total);
     const topPerformer = sorted[0];
-    const activePros = pros.filter(p => p.status === 'active');
+    const activePros = fyId !== 'all'
+      ? pros.filter(p => p.status === 'active' && getEligibleMonths(parseInt(fyId), p.joiningMonth, p.joiningYear).length > 0)
+      : pros.filter(p => p.status === 'active');
     const contributingIds = new Set(Object.keys(proMap));
     const zeroPros = activePros.filter(p => !contributingIds.has(p._id.toString()));
 
@@ -669,6 +711,8 @@ router.get('/monthly-comparison', protect, async (req, res) => {
     const proFilter = {};
     if (moduleId) proFilter.module = moduleId;
     const pros = await Pro.find(proFilter);
+    const fyStartYear = currentFY?._id !== 'all' ? (currentFY?.startYear || new Date().getFullYear()) : new Date().getFullYear();
+
     const proMap = {};
     pros.forEach(p => {
       proMap[p._id.toString()] = {
@@ -677,6 +721,8 @@ router.get('/monthly-comparison', protect, async (req, res) => {
         designation: p.designation || 'PRO Officer',
         area: p.area || 'N/A',
         status: p.status,
+        joiningMonth: p.joiningMonth || null,
+        joiningYear:  p.joiningYear  || null,
         monthlyAmounts: MONTHS.reduce((acc, m) => {
           acc[m] = 0;
           return acc;
@@ -695,23 +741,33 @@ router.get('/monthly-comparison', protect, async (req, res) => {
     const proList = Object.values(proMap);
     
     const targetMonth = selectedMonth || 'April';
+    const targetMonthCalYear = getMonthCalendarYear(targetMonth, fyStartYear);
+
     const rankings = proList
-      .map(p => ({
-        proId: p.proId,
-        name: p.name,
-        designation: p.designation,
-        area: p.area,
-        status: p.status,
-        amount: p.monthlyAmounts[targetMonth] || 0
-      }))
+      .map(p => {
+        const eligible = isMonthEligible(targetMonth, targetMonthCalYear, p.joiningMonth, p.joiningYear);
+        return {
+          proId: p.proId,
+          name: p.name,
+          designation: p.designation,
+          area: p.area,
+          status: p.status,
+          joiningMonth: p.joiningMonth,
+          joiningYear:  p.joiningYear,
+          eligible,
+          amount: eligible ? (p.monthlyAmounts[targetMonth] || 0) : 0
+        };
+      })
       .sort((a, b) => b.amount - a.amount)
-      .map((p, idx) => ({ ...p, rank: idx + 1 }));
+      .map((p, idx) => ({ ...p, rank: p.eligible ? idx + 1 : null }));
 
     const monthlyWinners = MONTHS.map(m => {
+      const mCalYear = getMonthCalendarYear(m, fyStartYear);
       let bestPro = null;
       let maxAmount = 0;
       
       proList.forEach(p => {
+        if (!isMonthEligible(m, mCalYear, p.joiningMonth, p.joiningYear)) return;
         const amt = p.monthlyAmounts[m] || 0;
         if (amt > maxAmount) {
           maxAmount = amt;
@@ -735,7 +791,7 @@ router.get('/monthly-comparison', protect, async (req, res) => {
     let prevMonth = null;
     let prevMonthTotal = 0;
     
-    const currentMonthTotal = rankings.reduce((s, p) => s + p.amount, 0);
+    const currentMonthTotal = rankings.filter(p => p.eligible).reduce((s, p) => s + p.amount, 0);
 
     if (monthIdx > 0) {
       prevMonth = MONTHS[monthIdx - 1];

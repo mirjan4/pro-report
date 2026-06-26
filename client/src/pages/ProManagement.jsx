@@ -4,6 +4,8 @@ import client from '../api/client';
 import { Users, Plus, Edit, Trash2, ShieldAlert, Sparkles, Check, X, Search, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
+
 const parseBulkText = (text, defaultModuleId) => {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
   const parsed = [];
@@ -11,10 +13,15 @@ const parseBulkText = (text, defaultModuleId) => {
   let startIndex = 0;
   if (lines.length > 0) {
     const firstLine = lines[0].toLowerCase();
-    if (firstLine.includes('name') || firstLine.includes('designation') || firstLine.includes('area') || firstLine.includes('mobile') || firstLine.includes('email')) {
+    if (firstLine.includes('name') || firstLine.includes('designation') || firstLine.includes('mobile') || firstLine.includes('email')) {
       startIndex = 1;
     }
   }
+
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonthIdx = today.getMonth();
+  const defaultStartYear = currentMonthIdx >= 3 ? currentYear : currentYear - 1;
   
   for (let i = startIndex; i < lines.length; i++) {
     const line = lines[i];
@@ -29,20 +36,20 @@ const parseBulkText = (text, defaultModuleId) => {
     
     const name = parts[0]?.trim() || '';
     const designation = parts[1]?.trim() || 'PRO Officer';
-    const area = parts[2]?.trim() || '';
-    const mobile = parts[3]?.trim() || '';
-    const email = parts[4]?.trim() || '';
+    const mobile = parts[2]?.trim() || '';
+    const email = parts[3]?.trim() || '';
     
     if (name) {
       parsed.push({
         name,
         designation: designation || 'PRO Officer',
-        area: area || '',
         mobile: mobile || '',
         email: email || '',
         status: 'active',
         module: defaultModuleId,
-        notes: ''
+        notes: '',
+        joiningMonth: 'April',
+        joiningYear: defaultStartYear
       });
     }
   }
@@ -60,7 +67,7 @@ const ProManagement = () => {
   const filteredPros = pros.filter(
     p =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.area.toLowerCase().includes(searchTerm.toLowerCase())
+      (p.designation && p.designation.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const [selectedProIds, setSelectedProIds] = useState([]);
@@ -106,12 +113,13 @@ const ProManagement = () => {
   // Form states
   const [name, setName] = useState('');
   const [designation, setDesignation] = useState('');
-  const [area, setArea] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('active');
   const [notes, setNotes] = useState('');
   const [moduleId, setModuleId] = useState('');
+  const [joiningMonth, setJoiningMonth] = useState('April');
+  const [joiningYear, setJoiningYear] = useState('');
   const [error, setError] = useState('');
 
   // Bulk entry states
@@ -160,17 +168,22 @@ const ProManagement = () => {
   };
 
   const handleBulkAddRow = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonthIdx = today.getMonth();
+    const defaultStartYear = currentMonthIdx >= 3 ? currentYear : currentYear - 1;
     setBulkParsedPros([
       ...bulkParsedPros,
       {
         name: '',
         designation: 'PRO Officer',
-        area: '',
         mobile: '',
         email: '',
         status: 'active',
         module: bulkDefaultModuleId,
-        notes: ''
+        notes: '',
+        joiningMonth: 'April',
+        joiningYear: defaultStartYear
       }
     ]);
   };
@@ -184,6 +197,12 @@ const ProManagement = () => {
       }
       if (!pro.module) {
         invalidRows.push(`Row ${index + 1}: Module is required.`);
+      }
+      if (!pro.joiningMonth) {
+        invalidRows.push(`Row ${index + 1}: Joining Month is required.`);
+      }
+      if (!pro.joiningYear) {
+        invalidRows.push(`Row ${index + 1}: Joining Year is required.`);
       }
     });
 
@@ -230,13 +249,18 @@ const ProManagement = () => {
     setEditingPro(null);
     setName('');
     setDesignation('PRO Officer');
-    setArea('');
     setMobile('');
     setEmail('');
     setStatus('active');
     setNotes('');
     const defaultModule = modules.find(m => m.code !== 'all')?._id || '';
     setModuleId(selectedModule && selectedModule.code !== 'all' ? selectedModule._id : defaultModule);
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonthIdx = today.getMonth();
+    const defaultStartYear = currentMonthIdx >= 3 ? currentYear : currentYear - 1;
+    setJoiningMonth('April');
+    setJoiningYear(defaultStartYear.toString());
     setError('');
     setModalOpen(true);
   };
@@ -245,13 +269,14 @@ const ProManagement = () => {
     setEditingPro(pro);
     setName(pro.name);
     setDesignation(pro.designation || 'PRO Officer');
-    setArea(pro.area);
     setMobile(pro.mobile || '');
     setEmail(pro.email || '');
     setStatus(pro.status || 'active');
     setNotes(pro.notes || '');
     const defaultModule = modules.find(m => m.code !== 'all')?._id || '';
     setModuleId(pro.module?._id || pro.module || (selectedModule && selectedModule.code !== 'all' ? selectedModule._id : defaultModule));
+    setJoiningMonth(pro.joiningMonth || 'April');
+    setJoiningYear(pro.joiningYear ? pro.joiningYear.toString() : '');
     setError('');
     setModalOpen(true);
   };
@@ -260,8 +285,20 @@ const ProManagement = () => {
     e.preventDefault();
     if (!name) { setError('Name is a required field'); return; }
     if (!moduleId) { setError('Please select a module for this PRO officer'); return; }
+    if (!joiningMonth) { setError('Joining Month is a required field'); return; }
+    if (!joiningYear) { setError('Joining Year is a required field'); return; }
     setError('');
-    const proData = { name, designation, area, mobile, email, status, notes, module: moduleId };
+    const proData = {
+      name,
+      designation,
+      mobile,
+      email,
+      status,
+      notes,
+      module: moduleId,
+      joiningMonth,
+      joiningYear: Number(joiningYear)
+    };
     try {
       if (editingPro) {
         const res = await client.put(`/api/pros/${editingPro._id}`, proData);
@@ -345,7 +382,7 @@ const ProManagement = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search PROs by name or area..."
+              placeholder="Search PROs by name or designation..."
               className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-gold transition-colors duration-200"
             />
           </div>
@@ -380,7 +417,7 @@ const ProManagement = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPros.map((pro) => (
-            <div key={pro._id} className={`glass-card rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between transition-all duration-300 ${selectedProIds.includes(pro._id) ? 'ring-2 ring-gold/45 border-gold/30 bg-gold/[0.02]' : ''}`}>
+            <div key={pro._id} className={`glass-card rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between transition-all duration-300 ${selectedProIds.includes(pro._id) ? 'ring-2 ring-gold/45 border-gold/30 bg-gold/[0.02]' : ''}`}>
               {/* Top Details */}
               <div>
                 <div className="flex items-start justify-between">
@@ -417,28 +454,30 @@ const ProManagement = () => {
                   </span>
                 </div>
 
-                <div className="space-y-2 mt-4 pt-4 border-t border-white/5 text-sm text-gray-300">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Area Scope:</span>
-                    <span className="font-medium text-white">{pro.area}</span>
+                <div className="space-y-3 mt-3 pt-3 border-t border-white/5 text-sm text-gray-300">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Joined</span>
+                    <span className="font-medium text-white mt-0.5">
+                      {pro.joiningMonth && pro.joiningYear ? `${pro.joiningMonth} ${pro.joiningYear}` : 'Not Available'}
+                    </span>
                   </div>
                   {pro.mobile && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Mobile:</span>
-                      <span className="font-medium text-white">{pro.mobile}</span>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Mobile</span>
+                      <span className="font-medium text-white mt-0.5">{pro.mobile}</span>
                     </div>
                   )}
                   {pro.email && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Email:</span>
-                      <span className="font-medium text-white truncate max-w-[150px]">{pro.email}</span>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wider">Email</span>
+                      <span className="font-medium text-white mt-0.5 truncate w-full">{pro.email}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Bottom Actions */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/5">
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
                 <Link
                   to={`/pro/${pro._id}`}
                   className="flex items-center space-x-1.5 text-xs text-gold hover:text-white font-semibold transition-colors"
@@ -501,27 +540,15 @@ const ProManagement = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Designation</label>
-                  <input
-                    type="text"
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    placeholder="e.g. Senior PRO"
-                    className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Area / Region</label>
-                  <input
-                    type="text"
-                    value={area}
-                    onChange={(e) => setArea(e.target.value)}
-                    placeholder="e.g. Dubai Marina"
-                    className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
-                  />
-                </div>
+              <div>
+                <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Designation</label>
+                <input
+                  type="text"
+                  value={designation}
+                  onChange={(e) => setDesignation(e.target.value)}
+                  placeholder="e.g. Senior PRO"
+                  className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -555,6 +582,33 @@ const ProManagement = () => {
                   {modules.filter(m => m.code !== 'all').map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Joining Month *</label>
+                  <select
+                    value={joiningMonth}
+                    onChange={(e) => setJoiningMonth(e.target.value)}
+                    className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                  >
+                    <option value="">Select Month</option>
+                    {MONTHS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Joining Year *</label>
+                  <input
+                    type="number"
+                    value={joiningYear}
+                    onChange={(e) => setJoiningYear(e.target.value)}
+                    placeholder="e.g. 2026"
+                    className="w-full bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gold"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1.5">Status</label>
                 <select
@@ -649,7 +703,7 @@ const ProManagement = () => {
                   <div className="text-xs text-gray-400 flex flex-col justify-center bg-white/5 p-3 rounded-xl border border-white/5">
                     <span className="font-bold text-white mb-0.5">Instructions:</span>
                     Paste data directly from Excel or write comma/tab separated text.
-                    Columns: <code className="text-gold">Name | Designation | Area | Mobile | Email</code>. Header row is optional and auto-skipped.
+                    Columns: <code className="text-gold">Name | Designation | Mobile | Email</code>. Header row is optional and auto-skipped.
                   </div>
                 </div>
 
@@ -660,7 +714,7 @@ const ProManagement = () => {
                   <textarea
                     value={bulkRawText}
                     onChange={(e) => setBulkRawText(e.target.value)}
-                    placeholder="e.g.&#10;Ahmed Al-Rashidi&#9;Senior PRO&#9;Dubai Marina&#9;050-1234567&#9;ahmed@domain.com&#10;John Smith&#9;PRO Officer&#9;Abu Dhabi&#9;052-7654321&#9;john@domain.com"
+                    placeholder="e.g.&#10;Ahmed Al-Rashidi&#9;Senior PRO&#9;050-1234567&#9;ahmed@domain.com&#10;John Smith&#9;PRO Officer&#9;052-7654321&#9;john@domain.com"
                     className="w-full flex-1 bg-[#0a0f1d] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold font-mono resize-none min-h-[150px]"
                   />
                 </div>
@@ -705,10 +759,11 @@ const ProManagement = () => {
                       <tr className="bg-white/5 text-gray-400 text-xs font-bold uppercase border-b border-white/10 sticky top-0 z-10">
                         <th className="p-3">Name *</th>
                         <th className="p-3">Designation</th>
-                        <th className="p-3">Area</th>
                         <th className="p-3">Mobile</th>
                         <th className="p-3">Email</th>
                         <th className="p-3">Module *</th>
+                        <th className="p-3">Joining Month *</th>
+                        <th className="p-3">Joining Year *</th>
                         <th className="p-3 text-center">Action</th>
                       </tr>
                     </thead>
@@ -733,15 +788,7 @@ const ProManagement = () => {
                               className="w-full bg-[#0a0f1d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold"
                             />
                           </td>
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={pro.area}
-                              onChange={(e) => handleBulkFieldChange(index, 'area', e.target.value)}
-                              placeholder="Area"
-                              className="w-full bg-[#0a0f1d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold"
-                            />
-                          </td>
+
                           <td className="p-2">
                             <input
                               type="text"
@@ -773,6 +820,28 @@ const ProManagement = () => {
                                 </option>
                               ))}
                             </select>
+                          </td>
+                          <td className="p-2">
+                            <select
+                              value={pro.joiningMonth || 'April'}
+                              onChange={(e) => handleBulkFieldChange(index, 'joiningMonth', e.target.value)}
+                              className="w-full bg-[#0a0f1d] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold"
+                            >
+                              {MONTHS.map((m) => (
+                                <option key={m} value={m}>
+                                  {m}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={pro.joiningYear || ''}
+                              onChange={(e) => handleBulkFieldChange(index, 'joiningYear', Number(e.target.value))}
+                              placeholder="Year"
+                              className="w-full bg-[#0a0f1d] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold"
+                            />
                           </td>
                           <td className="p-2 text-center">
                             <button

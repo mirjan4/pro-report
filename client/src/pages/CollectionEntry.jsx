@@ -11,6 +11,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const MONTHS = ['April','May','June','July','August','September','October','November','December','January','February','March'];
 
+const CALENDAR_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function getMonthCalendarYear(month, fyStartYear) {
+  const idx = MONTHS.indexOf(month);
+  return (idx >= 0 && idx <= 8) ? fyStartYear : fyStartYear + 1;
+}
+
+function isMonthEligible(month, calYear, joiningMonth, joiningYear) {
+  if (!joiningMonth || !joiningYear) return true;
+  const entryDate = new Date(Date.UTC(calYear, CALENDAR_MONTHS.indexOf(month), 1));
+  const joiningDate = new Date(Date.UTC(joiningYear, CALENDAR_MONTHS.indexOf(joiningMonth), 1));
+  return entryDate >= joiningDate;
+}
+
 const CollectionEntry = () => {
   const { financialYears, selectedFY, pros, selectedModule, modules, collectionHeads, refreshedMetadata, refreshMetadata } = useApp();
   const [collections, setCollections] = useState([]);
@@ -117,21 +131,53 @@ const CollectionEntry = () => {
     : pros;
   const activePros = modulePros.filter(p => p.status === 'active');
 
+  // Dynamic form PROs filtered by selected form module, active, sorted alphabetically
+  const activeFormModuleId = (selectedModule && selectedModule.code !== 'all')
+    ? selectedModule._id
+    : formModuleId;
+
+  const formPros = activeFormModuleId
+    ? pros
+        .filter(p => {
+          const proModId = p.module?._id || p.module;
+          return proModId?.toString() === activeFormModuleId.toString() && p.status === 'active';
+        })
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [];
+
   const fetchCollections = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: 200 });
-      if (selectedModule && selectedModule.code !== 'all') params.append('module', selectedModule._id);
-      
-      const activeFY = selectedFY || financialYears.find(fy => fy.isActive) || financialYears[0];
+      const params = new URLSearchParams({ limit: 2000 });
+
+      // ── Module filter ──
+      if (selectedModule && selectedModule.code !== 'all') {
+        params.append('module', selectedModule._id);
+      }
+
+      // ── FY filter: always resolve to a real year, never send 'all' ──
+      // Priority: selectedFY (if not 'all') → first active FY → first FY in list
+      const activeFY =
+        (selectedFY && selectedFY._id !== 'all' ? selectedFY : null) ||
+        financialYears.find(fy => fy.isActive && fy._id !== 'all') ||
+        financialYears.find(fy => fy._id !== 'all');
+
       if (activeFY) {
         params.append('financialYear', activeFY._id);
       }
+      // If still no FY found (only 'all' pseudo-year exists), fetch without filter
+
+      // ── Frontend debug log ──
+      console.log('[CollectionEntry] fetchCollections →', `/api/collections?${params}`);
+      console.log('[CollectionEntry] selectedFY:', selectedFY?._id, '| resolved activeFY:', activeFY?._id, activeFY?._id);
 
       const res = await client.get(`/api/collections?${params}`);
+
+      console.log('[CollectionEntry] API response → total:', res.data.total, '| returned:', res.data.data?.length);
+
       if (res.data.success) setCollections(res.data.data);
     } catch (err) {
-      console.error('Failed to fetch collections', err);
+      console.error('[CollectionEntry] Failed to fetch collections', err);
     } finally {
       setLoading(false);
     }
@@ -141,9 +187,16 @@ const CollectionEntry = () => {
     fetchCollections();
   }, [selectedModule, selectedFY, financialYears]);
 
+
   useEffect(() => {
-    if (activePros.length > 0) setProId(activePros[0]._id);
-  }, [selectedModule, pros]);
+    if (formPros.length > 0) {
+      if (!formPros.some(p => p._id === proId)) {
+        setProId(formPros[0]._id);
+      }
+    } else {
+      setProId('');
+    }
+  }, [formModuleId, selectedModule, pros]);
 
   const openAddForm = (defaultMonth) => {
     setEditingEntry(null);
@@ -158,10 +211,9 @@ const CollectionEntry = () => {
     setFormYear(yVal);
     
     const specificModules = modules.filter(m => m.code !== 'all');
-    const defaultMod = selectedModule && selectedModule.code !== 'all' ? selectedModule._id : (specificModules[0]?._id || '');
+    const defaultMod = selectedModule && selectedModule.code !== 'all' ? selectedModule._id : '';
     setFormModuleId(defaultMod);
     
-    if (activePros.length > 0) setProId(activePros[0]._id);
     setAmount('');
     setAdditionalCollectionsList([]);
     setNewHead('');
@@ -249,6 +301,16 @@ const CollectionEntry = () => {
     
     setError('');
     setSuccessMsg('');
+
+    // Pre-joining month entry validation
+    const selectedPro = pros.find(p => p._id === proId);
+    if (selectedPro) {
+      const eligible = isMonthEligible(formMonth, Number(formYear), selectedPro.joiningMonth, selectedPro.joiningYear);
+      if (!eligible) {
+        setError(`This PRO joined in ${selectedPro.joiningMonth} ${selectedPro.joiningYear}. Entries cannot be created for earlier months.`);
+        return;
+      }
+    }
 
     const cleanedCollectionsList = additionalCollectionsList
       .map(ac => ({ head: ac.head, amount: Number(ac.amount) || 0 }))
@@ -516,12 +578,35 @@ const CollectionEntry = () => {
               return acc;
             }, {});
 
+            const currentFY = selectedFY || financialYears.find(fy => fy.isActive) || financialYears[0];
+            const fyStartYear = currentFY ? currentFY.startYear : new Date().getFullYear();
+            
+            let totalEligibleMonths = 0;
+            activePros.forEach(p => {
+              MONTHS.forEach(m => {
+                const calYear = getMonthCalendarYear(m, fyStartYear);
+                if (isMonthEligible(m, calYear, p.joiningMonth, p.joiningYear)) {
+                  totalEligibleMonths++;
+                }
+              });
+            });
+            if (totalEligibleMonths === 0) totalEligibleMonths = activePros.length * 12;
+
+            const completionPercentage = totalEligibleMonths > 0 
+              ? Math.round((collections.length / totalEligibleMonths) * 100) 
+              : 0;
+
             return (
               <div className="space-y-4">
                 {/* Expand/Collapse All and Stats */}
-                <div className="flex justify-between items-center bg-white/5 border border-white/10 p-4 rounded-2xl mb-4">
-                  <div className="text-xs text-gray-400 font-medium">
-                    Total: <span className="text-white font-bold">{collections.length} entries</span> across <span className="text-white font-bold">{MONTHS.filter(m => (collectionsByMonth[m] || []).length > 0).length} active months</span>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/5 border border-white/10 p-4 rounded-2xl mb-4 gap-4">
+                  <div className="text-xs text-gray-400 font-medium space-y-1">
+                    <div>
+                      Total: <span className="text-white font-bold">{collections.length} entries</span> across <span className="text-white font-bold">{MONTHS.filter(m => (collectionsByMonth[m] || []).length > 0).length} active months</span>
+                    </div>
+                    <div>
+                      Expected Entries: <span className="text-white font-bold">{totalEligibleMonths}</span> | Completion Rate: <span className="text-gold font-bold">{completionPercentage}%</span>
+                    </div>
                   </div>
                   <div>
                     <button
@@ -540,19 +625,29 @@ const CollectionEntry = () => {
                     const monthTotal = monthEntries.reduce((sum, c) => sum + (c.totalAmount || (c.amount || 0) + (c.additionalAmount || 0)), 0);
                     const isExpanded = !!expandedMonths[m];
                     const submissionCount = monthEntries.length;
-                    const activeProsCount = activePros.length;
+                    
+                    const calYear = getMonthCalendarYear(m, fyStartYear);
+                    const eligibleProsForMonth = activePros.filter(p => isMonthEligible(m, calYear, p.joiningMonth, p.joiningYear));
+                    const eligibleProsCount = eligibleProsForMonth.length;
 
                     // Completion badge styling
                     let statusBadgeColor = 'bg-gray-500/10 text-gray-400 border border-white/5';
                     let statusText = '0 Entries';
-                    if (submissionCount > 0) {
-                      if (submissionCount >= activeProsCount && activeProsCount > 0) {
+                    
+                    if (eligibleProsCount === 0) {
+                      statusBadgeColor = 'bg-gray-500/10 text-gray-400 border border-white/5';
+                      statusText = 'Not Joined Yet'; // N/A
+                    } else if (submissionCount > 0) {
+                      if (submissionCount >= eligibleProsCount) {
                         statusBadgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
                         statusText = 'Complete';
                       } else {
                         statusBadgeColor = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-                        statusText = `${submissionCount}/${activeProsCount} Officers`;
+                        statusText = `${submissionCount}/${eligibleProsCount} Officers`;
                       }
+                    } else {
+                      statusBadgeColor = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                      statusText = `0/${eligibleProsCount} Officers`;
                     }
 
                     return (
@@ -580,13 +675,15 @@ const CollectionEntry = () => {
                             <span className="w-px h-6 bg-white/10 hidden sm:block" />
 
                             <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => openAddForm(m)}
-                                title={`Add entry for ${m}`}
-                                className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                              </button>
+                              {eligibleProsCount > 0 && (
+                                <button
+                                  onClick={() => openAddForm(m)}
+                                  title={`Add entry for ${m}`}
+                                  className="p-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => toggleMonth(m)}
                                 className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
@@ -609,13 +706,15 @@ const CollectionEntry = () => {
                             >
                               {monthEntries.length === 0 ? (
                                 <div className="p-6 text-center text-sm text-gray-500 flex flex-col items-center gap-2">
-                                  <span>No entries recorded for {m} yet.</span>
-                                  <button
-                                    onClick={() => openAddForm(m)}
-                                    className="text-xs font-bold text-gold hover:underline flex items-center gap-1 mt-1 cursor-pointer"
-                                  >
-                                    <Plus className="w-3 h-3" /> Add entry
-                                  </button>
+                                  <span>{eligibleProsCount === 0 ? 'No officers have joined yet in this month.' : `No entries recorded for ${m} yet.`}</span>
+                                  {eligibleProsCount > 0 && (
+                                    <button
+                                      onClick={() => openAddForm(m)}
+                                      className="text-xs font-bold text-gold hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add entry
+                                    </button>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="overflow-x-auto">
@@ -919,6 +1018,7 @@ const CollectionEntry = () => {
                       onChange={e => setFormModuleId(e.target.value)}
                       className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50 cursor-pointer"
                     >
+                      <option value="">Select Module</option>
                       {modules.filter(m => m.code !== 'all').map(m => (
                         <option key={m._id} value={m._id}>{m.name}</option>
                       ))}
@@ -954,11 +1054,23 @@ const CollectionEntry = () => {
                 {/* PRO Officer */}
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">PRO Officer</label>
-                  <select value={proId} onChange={e => setProId(e.target.value)}
-                    className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50 cursor-pointer">
-                    {activePros.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                  <select
+                    value={proId}
+                    onChange={e => setProId(e.target.value)}
+                    disabled={!activeFormModuleId || formPros.length === 0}
+                    className="w-full bg-[#0d1b2a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {!activeFormModuleId && <option value="">Select a module first</option>}
+                    {activeFormModuleId && formPros.length === 0 && <option value="">No officers available</option>}
+                    {activeFormModuleId && formPros.map(p => (
+                      <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
                   </select>
-                  {activePros.length === 0 && <p className="text-xs text-amber-400 mt-1">No active PROs for this module.</p>}
+                  {!activeFormModuleId ? (
+                    <p className="text-xs text-gray-500 mt-1">Please select a module first.</p>
+                  ) : formPros.length === 0 ? (
+                    <p className="text-xs text-rose-400 mt-1 font-semibold">No officers available for this collection category.</p>
+                  ) : null}
                 </div>
 
                 {/* Takaful Collection Amount */}

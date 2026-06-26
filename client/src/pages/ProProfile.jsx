@@ -295,7 +295,7 @@ const ProProfile = () => {
     xAxis: { type: 'category', data: data?.monthlyBreakdown?.map(m => m.month.substring(0, 3)) || [], axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }, axisLabel: { color: '#9ca3af', rotate: 30 } },
     yAxis: { type: 'value', axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } }, axisLabel: { color: '#9ca3af' } },
     series: [
-      { name: 'Current Year', type: 'bar', itemStyle: { color: '#f5c518', borderRadius: [4, 4, 0, 0] }, data: data?.monthlyBreakdown?.map(m => m.current) || [] },
+      { name: 'Current Year', type: 'bar', itemStyle: { color: '#f5c518', borderRadius: [4, 4, 0, 0] }, data: data?.monthlyBreakdown?.map(m => m.eligible ? m.current : null) || [] },
       { name: 'Previous Year', type: 'bar', itemStyle: { color: '#1e3a8a', borderRadius: [4, 4, 0, 0] }, data: data?.monthlyBreakdown?.map(m => m.previous) || [] }
     ]
   };
@@ -519,9 +519,11 @@ const ProProfile = () => {
                 <span className="font-bold text-white">₹{prevMonthVal.toLocaleString('en-IN')}</span>
               </div>
             )}
-            <div className="flex justify-between">
+            <div className="flex justify-between font-semibold">
               <span>Consistency Index:</span>
-              <span className="font-bold text-white">{data.consistencyScore}%</span>
+              <span className="font-bold text-white">
+                {data.consistencyScore}% ({data.monthlyBreakdown?.filter(m => m.current > 0).length || 0}/{data.monthlyBreakdown?.filter(m => m.eligible).length || 0} eligible months)
+              </span>
             </div>
             {filterMonth !== 'all' && (
               <div className="flex justify-between">
