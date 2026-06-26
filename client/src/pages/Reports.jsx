@@ -10,6 +10,8 @@ import XLSX from 'xlsx-js-style';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ROBOTO_FONT_BASE64 } from '../assets/font';
+import markazLogo from '../assets/markaz-logo.png';
+import logo2 from '../assets/logo2.png';
 
 const MONTHS = [
   'April', 'May', 'June', 'July', 'August', 'September',
@@ -340,14 +342,14 @@ const Reports = () => {
       }
 
       const sideTitleRow2 = Array.from({ length: maxCols }, () => ({}));
-      sideTitleRow2[0] = makeCell('SPONSORS ADDED BY RECRUITER', 's', styles.sideSectionTitle);
-      sideTitleRow2[3] = makeCell('ALLOCATED PROJECT DISTRIBUTIONS', 's', styles.sideSectionTitle);
+      sideTitleRow2[0] = makeCell('SPONSORS ADDED', 's', styles.sideSectionTitle);
+      sideTitleRow2[3] = makeCell('DISTRIBUTIONS', 's', styles.sideSectionTitle);
       sheet1Rows.push(sideTitleRow2);
       sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: 1 } });
       sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 3 }, e: { r: sheet1Rows.length - 1, c: 4 } });
 
       const rowHeaders2 = Array.from({ length: maxCols }, () => ({}));
-      rowHeaders2[0] = makeCell('PRO / OFFICE RECRUITER', 's', styles.tableHeaderLeft);
+      rowHeaders2[0] = makeCell('PRO / OFFICE', 's', styles.tableHeaderLeft);
       rowHeaders2[1] = makeCell('SPONSORS COUNT', 's', styles.tableHeader);
       rowHeaders2[3] = makeCell('HEAD', 's', styles.tableHeaderLeft);
       rowHeaders2[4] = makeCell('AMOUNT', 's', styles.tableHeader);
@@ -588,12 +590,26 @@ const Reports = () => {
     }
   };
 
+  // Helper to load image as HTMLImageElement
+  const loadImage = (src) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // Fallback gracefully if logo is missing
+    });
+  };
+
   // EXPORT TO PDF
-  // EXPORT TO PDF
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!report) return;
     setExportingPDF(true);
     try {
+      const [imgMarkaz, imgLogo2] = await Promise.all([
+        loadImage(markazLogo),
+        loadImage(logo2)
+      ]);
+
       const doc = new jsPDF({
         orientation: 'p',
         unit: 'mm',
@@ -710,10 +726,185 @@ const Reports = () => {
         }
       };
 
-      // =========================================================================
-      // PAGE 1 - ROW 1: NEW SPONSORS ADDED & COLLECTION SUMMARY (2-column layout)
-      // =========================================================================
-      // Title layout spacing
+      const isProReport = report.collectionFilterCode === 'pro';
+
+      if (isProReport) {
+        // =========================================================================
+        // PAGE 1: PRO COLLECTION DETAILS
+        // =========================================================================
+        renderSectionHeader('PRO COLLECTION DETAILS', 1);
+        const p1StartY = currentY;
+        const p1Headers = [['RANK', 'PRO NAME', 'DESIGNATION', 'COLLECTION AMOUNT', 'CONTRIBUTION %']];
+        const p1Rows = report.detailedReport.rows.map(r => [
+          String(r.rank),
+          r.name,
+          r.designation,
+          '₹' + r.takafulAmount.toLocaleString('en-IN'),
+          r.pct + '%'
+        ]);
+
+        doc.autoTable({
+          ...tableOptions,
+          head: p1Headers,
+          body: p1Rows,
+          startY: currentY,
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { fontStyle: 'bold' },
+            2: { fontStyle: 'normal' },
+            3: { halign: 'right', fontStyle: 'bold', cellWidth: 40 },
+            4: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+          }
+        });
+        drawTableOuterBorder(doc.lastAutoTable, 1, p1StartY, 190);
+
+        // =========================================================================
+        // PAGE 2: PRO COLLECTION COMPARISON
+        // =========================================================================
+        doc.addPage();
+        currentY = 38;
+        renderSectionHeader('PRO COLLECTION COMPARISON WITH PREVIOUS PERIOD', 1);
+        const p2StartY = currentY;
+        const p2Headers = [['RANK', 'PRO NAME', 'PREV COLLECTION', 'CURRENT COLLECTION', 'DIFFERENCE', 'GROWTH %']];
+        const p2Rows = report.detailedReport.rows.map(r => [
+          String(r.rank),
+          r.name + '\n(' + r.designation + ')',
+          '₹' + r.prevAmount.toLocaleString('en-IN'),
+          '₹' + r.takafulAmount.toLocaleString('en-IN'),
+          (r.change >= 0 ? '+' : '') + '₹' + r.change.toLocaleString('en-IN'),
+          (r.change >= 0 ? '▲ ' : '▼ ') + r.growthPct + '%'
+        ]);
+
+        doc.autoTable({
+          ...tableOptions,
+          head: p2Headers,
+          body: p2Rows,
+          startY: currentY,
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { fontStyle: 'bold' },
+            2: { halign: 'right', cellWidth: 35 },
+            3: { halign: 'right', fontStyle: 'bold', cellWidth: 35 },
+            4: { halign: 'right', fontStyle: 'bold', cellWidth: 35 },
+            5: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+          },
+          didParseCell: function(data) {
+            if (data.section === 'body') {
+              if (data.column.index === 4 || data.column.index === 5) {
+                const text = data.cell.text.join('');
+                if (text.startsWith('+') || text.includes('▲')) {
+                  data.cell.styles.textColor = [16, 185, 129];
+                } else if (text.startsWith('-') || text.includes('▼')) {
+                  data.cell.styles.textColor = [239, 68, 68];
+                }
+              }
+            }
+          }
+        });
+        drawTableOuterBorder(doc.lastAutoTable, 2, p2StartY, 190);
+
+        // =========================================================================
+        // PAGE 3: DETAILS WITH EXPENSE
+        // =========================================================================
+        doc.addPage();
+        currentY = 38;
+        renderSectionHeader('PRO COLLECTION DETAILS WITH EXPENSE', 1);
+        const p3StartY = currentY;
+        const p3Headers = [['RANK', 'PRO NAME', 'DESIGNATION', 'TOTAL COLLECTION', 'EXPENSE', 'NET BALANCE']];
+        const p3Rows = report.detailedReport.rows.map(r => [
+          String(r.rank),
+          r.name,
+          r.designation,
+          '₹' + r.takafulAmount.toLocaleString('en-IN'),
+          '₹' + r.expenseAmount.toLocaleString('en-IN'),
+          '₹' + r.netBalance.toLocaleString('en-IN')
+        ]);
+
+        doc.autoTable({
+          ...tableOptions,
+          head: p3Headers,
+          body: p3Rows,
+          startY: currentY,
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { fontStyle: 'bold' },
+            2: { fontStyle: 'normal' },
+            3: { halign: 'right', fontStyle: 'bold', cellWidth: 35 },
+            4: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68], cellWidth: 35 },
+            5: { halign: 'right', fontStyle: 'bold', textColor: [212, 175, 55], cellWidth: 35 }
+          }
+        });
+        drawTableOuterBorder(doc.lastAutoTable, 3, p3StartY, 190);
+
+        // =========================================================================
+        // PAGE 4: COMPARISON WITH INCOME AND EXPENSE
+        // =========================================================================
+        doc.addPage();
+        currentY = 38;
+        renderSectionHeader('INCOME VS EXPENSE COMPARISON', 1);
+        const p4StartY = currentY;
+        const p4Headers = [['RANK', 'PRO NAME', 'INCOME (TAKAFUL)', 'EXPENSE', 'NET BALANCE', 'EXPENSE RATIO']];
+        const p4Rows = report.detailedReport.rows.map(r => [
+          String(r.rank),
+          r.name + '\n(' + r.designation + ')',
+          '₹' + r.takafulAmount.toLocaleString('en-IN'),
+          '₹' + r.expenseAmount.toLocaleString('en-IN'),
+          '₹' + r.netBalance.toLocaleString('en-IN'),
+          r.expenseRatio + '%'
+        ]);
+
+        doc.autoTable({
+          ...tableOptions,
+          head: p4Headers,
+          body: p4Rows,
+          startY: currentY,
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { fontStyle: 'bold' },
+            2: { halign: 'right', cellWidth: 35 },
+            3: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68], cellWidth: 35 },
+            4: { halign: 'right', fontStyle: 'bold', textColor: [13, 27, 42], cellWidth: 35 },
+            5: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+          }
+        });
+        drawTableOuterBorder(doc.lastAutoTable, 4, p4StartY, 190);
+        currentY = doc.lastAutoTable.finalY;
+
+        // Render Summary Block at bottom of Page 4
+        if (currentY + 22 > pageHeight - 25) {
+          doc.addPage();
+          currentY = 38;
+        } else {
+          currentY += 8;
+        }
+
+        const summaryWidth = 190;
+        const summaryHeight = 14;
+        doc.setDrawColor(13, 27, 42); // Dark Blue border
+        doc.setLineWidth(0.5);
+        doc.setFillColor(250, 250, 250); // White-ish gray background
+        doc.rect(10, currentY, summaryWidth, summaryHeight, 'FD');
+
+        doc.setFont('Roboto', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(13, 27, 42);
+
+        const incText = `Total Income: ₹${report.collectionSummary.total.toLocaleString('en-IN')}`;
+        const expText = `Total Expense: ₹${(report.totalExpense || 0).toLocaleString('en-IN')}`;
+        const balText = `Net Balance: ₹${(report.netBalance || 0).toLocaleString('en-IN')}`;
+        const ratioPct = report.collectionSummary.total > 0 ? ((report.totalExpense || 0) / report.collectionSummary.total * 100).toFixed(1) : '0.0';
+        const ratioText = `Expense Ratio: ${ratioPct}%`;
+
+        doc.text(incText, 15, currentY + 9);
+        doc.text(expText, 65, currentY + 9);
+        doc.text(balText, 115, currentY + 9);
+        doc.text(ratioText, 160, currentY + 9);
+
+      } else {
+        // =========================================================================
+        // PAGE 1 - ROW 1: NEW SPONSORS ADDED & COLLECTION SUMMARY (2-column layout)
+        // =========================================================================
+        // Title layout spacing
       doc.setFont('Roboto', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(13, 27, 42);
@@ -815,8 +1006,8 @@ const Reports = () => {
       doc.setFont('Roboto', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(13, 27, 42);
-      doc.text('SPONSORS ADDED BY RECRUITER', 10, currentY);
-      doc.text('ALLOCATED PROJECT DISTRIBUTIONS', 110, currentY);
+      doc.text('SPONSORS ADDED ', 10, currentY);
+      doc.text('DISTRIBUTIONS', 110, currentY);
       currentY += 4;
 
       const pageBeforeSec2 = doc.internal.getCurrentPageInfo().pageNumber;
@@ -824,7 +1015,7 @@ const Reports = () => {
       // Left Table: Recruiters
       doc.autoTable({
         ...tableOptions,
-        head: [['PRO / OFFICE RECRUITER', 'SPONSORS COUNT']],
+        head: [['PRO / OFFICE ', 'SPONSORS COUNT']],
         body: paddedRecruiters,
         startY: currentY,
         margin: { left: 10 },
@@ -1079,6 +1270,7 @@ const Reports = () => {
 
       doc.setTextColor(13, 27, 42); // Dark Blue text
       doc.text(totalText, 105, currentY + 8.5, { align: 'center' }); // Centered text
+      } // isProReport else end
 
       // =========================================================================
       // POST-PROCESSING: Dynamic Headers, Footers, and Page Numbers
@@ -1090,6 +1282,14 @@ const Reports = () => {
         // 1. Dark Blue Header Strip
         doc.setFillColor(13, 27, 42); // Dark Blue
         doc.rect(10, 10, 190, 18, 'F');
+        
+        // Draw Logos in both corners inside header strip
+        if (imgMarkaz) {
+          doc.addImage(imgMarkaz, 'PNG', 12, 12, 14, 14);
+        }
+        if (imgLogo2) {
+          doc.addImage(imgLogo2, 'PNG', 184, 12, 14, 14);
+        }
         
         // 2. Centered Gold Title
         doc.setFont('Roboto', 'bold');
@@ -1429,306 +1629,586 @@ const Reports = () => {
 
           {/* totalPages definition helper */}
           {(() => {
-            const totalPages = 3;
-            return (
-              <div className="flex flex-col items-center gap-8 w-full">
-            
-            {/* PAGE 1: Management Summary Report */}
-            <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between">
-              <div>
-                {/* Header Section */}
-                <div className="border-b border-white/10 pb-4 mb-6 text-center">
-                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">{report.title}</h2>
-                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                </div>
+            const isProReport = report.collectionFilterCode === 'pro';
+            const totalPages = isProReport ? 4 : 3;
 
-                {/* Grid layout for Sections 1 to 4 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column: Sponsors */}
-                  <div className="space-y-6">
-                    {/* Section 1: New Sponsors Added */}
-                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">NEW SPONSORS ADDED</h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="text-gray-400">Premium :</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.premium}</div>
-                        <div className="text-gray-400">Smart :</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.smart}</div>
-                        <div className="text-gray-400">Standard :</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.standard}</div>
-                        <div className="border-t border-white/10 pt-2 text-gray-300 font-bold">Total New Sponsors:</div>
-                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.total}</div>
+            if (isProReport) {
+              return (
+                <div className="flex flex-col items-center gap-8 w-full">
+                  {/* PAGE 1: PRO COLLECTION DETAILS */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">PRO COLLECTION DETAILS</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Content Table */}
+                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                            <tr className="border-b-2 border-[#222]">
+                              <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
+                              <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
+                              <th className="p-[7px_8px] border border-[#444] text-left">Designation</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Collection Amount</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right w-28">Contribution %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.detailedReport.rows.map((row) => (
+                              <tr key={row.rank} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-white font-semibold">{row.name}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-gray-300">{row.designation}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-gold font-bold">{row.pct}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
-                    {/* Section 2: Sponsors Added by PRO / Office */}
-                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] max-h-[220px] overflow-y-auto report-scroll-container">
-                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">SPONSORS ADDED BY RECRUITER</h4>
-                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                          <tr className="border-b-2 border-[#222]">
-                            <th className="p-[7px_8px] border border-[#444] text-center">PRO / Office</th>
-                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Sponsors Count</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {report.sponsorsByRecruiter.slice(0, 10).map((s, idx) => (
-                            <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
-                              <td className="p-[7px_8px] border border-[#444] text-gray-300">{s.name}</td>
-                              <td className="p-[7px_8px] border border-[#444] text-right font-semibold text-white min-w-[100px] whitespace-nowrap">{s.count}</td>
-                            </tr>
-                          ))}
-                          {report.sponsorsByRecruiter.length === 0 && (
-                            <tr>
-                              <td colSpan="2" className="py-3 text-center text-gray-500 italic text-[11px]">No recruiters recorded</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                    {/* Page Footer */}
+                    <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                      <div className="text-left">
+                        <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                        <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                      </div>
+                      <div className="text-right text-[8px] text-gray-500 font-medium">
+                        <span>Page 1 of {totalPages}</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right Column: Collections */}
-                  <div className="space-y-6">
-                    {/* Section 3: Collection Summary */}
-                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">COLLECTION SUMMARY</h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="text-gray-400">Global Collection:</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.global.toLocaleString('en-IN')}</div>
-                        <div className="text-gray-400">PRO Collection:</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.pro.toLocaleString('en-IN')}</div>
-                        <div className="text-gray-400">Office Collection:</div>
-                        <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.office.toLocaleString('en-IN')}</div>
-                        <div className="border-t border-white/10 pt-2 text-gray-300 font-bold">Total Collection:</div>
-                        <div className="border-t border-white/10 pt-2 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.total.toLocaleString('en-IN')}</div>
+                  {/* PAGE 2: PRO COLLECTION DETAILS COMPARISON */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">PRO COLLECTION COMPARISON</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle} (VS PREVIOUS)</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Content Table */}
+                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                            <tr className="border-b-2 border-[#222]">
+                              <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
+                              <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Prev Collection</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Current Collection</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[90px]">Difference</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right w-24">Growth %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.detailedReport.rows.map((row) => (
+                              <tr key={row.rank} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
+                                  {row.name}
+                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
+                                </td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 font-semibold">₹{row.prevAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
+                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {row.change >= 0 ? '+' : ''}₹{row.change.toLocaleString('en-IN')}
+                                </td>
+                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {row.change >= 0 ? '▲' : '▼'} {row.growthPct}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
-                    {/* Section 4: Allocated Project Distributions */}
-                    <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] max-h-[220px] overflow-y-auto report-scroll-container">
-                      <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">ALLOCATED PROJECT DISTRIBUTIONS</h4>
-                      {(() => {
-                        const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-                        const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
-                        const distList = [
-                          { head: 'Takaful', amount: remaining },
-                          ...otherDists
-                        ];
+                    {/* Page Footer */}
+                    <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                      <div className="text-left">
+                        <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                        <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                      </div>
+                      <div className="text-right text-[8px] text-gray-500 font-medium">
+                        <span>Page 2 of {totalPages}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                        return (
+                  {/* PAGE 3: DETAILS WITH EXPENSE */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">PRO COLLECTION WITH EXPENSE</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Content Table */}
+                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                            <tr className="border-b-2 border-[#222]">
+                              <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
+                              <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Takaful Collection</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Expense</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Net Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.detailedReport.rows.map((row) => (
+                              <tr key={row.rank} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
+                                  {row.name}
+                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
+                                </td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-rose-400 font-bold">₹{row.expenseAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-gold font-bold">₹{row.netBalance.toLocaleString('en-IN')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Page Footer */}
+                    <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                      <div className="text-left">
+                        <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                        <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                      </div>
+                      <div className="text-right text-[8px] text-gray-500 font-medium">
+                        <span>Page 3 of {totalPages}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PAGE 4: COMPARISON WITH INCOME AND EXPENSE */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">INCOME VS EXPENSE COMPARISON</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Content Table */}
+                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                            <tr className="border-b-2 border-[#222]">
+                              <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
+                              <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Income (Takaful)</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Expense</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Net Balance</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right w-24">Expense Ratio</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {report.detailedReport.rows.map((row) => (
+                              <tr key={row.rank} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
+                                  {row.name}
+                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
+                                </td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-rose-400 font-bold">₹{row.expenseAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-gold font-bold">₹{row.netBalance.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right font-bold text-gray-300">
+                                  {row.expenseRatio}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* Overall Summary Row */}
+                      <div className="border border-dashed border-white/20 p-4 rounded-xl mt-6 flex justify-around text-center gap-4 bg-white/[0.01]">
+                        <div>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold block">Total Income</span>
+                          <span className="text-sm font-extrabold text-white mt-1 block">₹{report.collectionSummary.total.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-6 w-[1px] bg-white/10" />
+                        <div>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold block">Total Expense</span>
+                          <span className="text-sm font-extrabold text-rose-400 mt-1 block">₹{(report.totalExpense || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-6 w-[1px] bg-white/10" />
+                        <div>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold block">Net Balance</span>
+                          <span className="text-sm font-extrabold text-gold mt-1 block">₹{(report.netBalance || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-6 w-[1px] bg-white/10" />
+                        <div>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest font-bold block">Expense Ratio</span>
+                          <span className="text-sm font-extrabold text-gray-300 mt-1 block">
+                            {report.collectionSummary.total > 0 ? ((report.totalExpense || 0) / report.collectionSummary.total * 100).toFixed(1) : '0.0'}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Page Footer */}
+                    <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                      <div className="text-left">
+                        <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                        <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                      </div>
+                      <div className="text-right text-[8px] text-gray-500 font-medium">
+                        <span>Page 4 of {totalPages}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            } else {
+              return (
+                <div className="flex flex-col items-center gap-8 w-full">
+                  {/* PAGE 1: Management Summary Report */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">{report.title}</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Grid layout for Sections 1 to 4 */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left Column: Sponsors */}
+                        <div className="space-y-6">
+                          {/* Section 1: New Sponsors Added */}
+                          <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                            <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">NEW SPONSORS ADDED</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="text-gray-400">Premium :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.premium}</div>
+                              <div className="text-gray-400">Smart :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.smart}</div>
+                              <div className="text-gray-400">Standard :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.standard}</div>
+                              <div className="border-t border-white/10 pt-1 text-gold font-bold">Total Sponsors :</div>
+                              <div className="border-t border-white/10 pt-1 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.total}</div>
+                            </div>
+                          </div>
+
+                          {/* Section 2: Sponsors Added by Recruiter */}
+                          <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                            <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">SPONSORS ADDED </h4>
+                            <div className="overflow-x-auto report-scroll-container">
+                              <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                                <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                                  <tr className="border-b-2 border-[#222]">
+                                    <th className="p-[7px_8px] border border-[#444] text-center">Recruiter</th>
+                                    <th className="p-[7px_8px] border border-[#444] text-center min-w-[60px] whitespace-nowrap">Count</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 ? (
+                                    report.sponsorsByRecruiter.slice(0, 5).map((s, idx) => (
+                                      <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                        <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{s.name}</td>
+                                        <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold min-w-[60px] whitespace-nowrap">{s.count}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr className="border-b border-[#444]">
+                                      <td className="p-[7px_8px] border border-[#444] text-gray-500 italic">No recruiters</td>
+                                      <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[60px] whitespace-nowrap">0</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Column: Collections */}
+                        <div className="space-y-6">
+                          {/* Section 3: Collection Summary */}
+                          <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                            <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">COLLECTION SUMMARY</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="text-gray-400">Global Collection :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.global.toLocaleString('en-IN')}</div>
+                              <div className="text-gray-400">PRO Collection :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.pro.toLocaleString('en-IN')}</div>
+                              <div className="text-gray-400">Office Collection :</div>
+                              <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.office.toLocaleString('en-IN')}</div>
+                              <div className="border-t border-white/10 pt-1 text-gold font-bold">Total Collection :</div>
+                              <div className="border-t border-white/10 pt-1 font-bold text-right text-gold min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.total.toLocaleString('en-IN')}</div>
+                            </div>
+                          </div>
+
+                          {/* Section 4: Allocated Project Distributions */}
+                          <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                            <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]"> DISTRIBUTIONS</h4>
+                            {(() => {
+                              const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+                              const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
+                              const distList = [
+                                { head: 'Takaful', amount: remaining },
+                                ...otherDists
+                              ];
+
+                              return (
+                                <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                                  <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                                    <tr className="border-b-2 border-[#222]">
+                                      <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
+                                      <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {distList.map((item, idx) => (
+                                      <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                        <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
+                                        <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Financial Summary (Expense & Balance) */}
+                      <div className="border border-white/10 rounded-xl py-3.5 px-6 bg-white/[0.02] mt-6 flex flex-wrap justify-around items-center text-center gap-4">
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Collection</span>
+                          <span className="text-sm font-extrabold text-white mt-1 block">
+                            ₹{report.collectionSummary.total.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Expense</span>
+                          <span className="text-sm font-extrabold text-rose-400 mt-1 block">
+                            ₹{(report.totalExpense || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Net Balance</span>
+                          <span className="text-sm font-extrabold text-gold mt-1 block">
+                            ₹{(report.netBalance || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Section 5: Detailed Direct Collections Received Through PROs */}
+                      {report.additionalPivotRows && report.additionalPivotRows.length > 0 && (
+                        <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] mt-6">
+                          <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">
+                            DIRECT COLLECTIONS RECEIVED THROUGH PROs
+                          </h4>
+                          <div className="overflow-x-auto report-scroll-container">
+                            <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                              <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                                <tr className="border-b-2 border-[#222]">
+                                  <th className="p-[7px_8px] border border-[#444] text-center">PRO Name</th>
+                                  {report.additionalColumns.map(col => (
+                                    <th key={col} className="p-[7px_8px] border border-[#444] text-center min-w-[80px] whitespace-nowrap">{col}</th>
+                                  ))}
+                                  <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Total Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {report.additionalPivotRows.slice(0, 6).map((r, idx) => {
+                                  const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+                                  return (
+                                    <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
+                                      <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.proName}</td>
+                                      {report.additionalColumns.map(col => (
+                                        <td key={col} className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[80px] whitespace-nowrap">
+                                          ₹{(r[col] || 0).toLocaleString('en-IN')}
+                                        </td>
+                                      ))}
+                                      <td className="p-[7px_8px] border border-[#444] text-right font-bold text-gold min-w-[100px] whitespace-nowrap">
+                                        ₹{rowTotal.toLocaleString('en-IN')}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section 6: Grand Total Highlight Box */}
+                      <div className="print-grand-total border-2 border-[#f5c518] bg-[#0d1b2a] rounded-lg py-[6px] px-[20px] text-center mt-6 flex items-center justify-center gap-3">
+                        <span className="text-[14px] sm:text-[16px] font-bold text-gold uppercase tracking-wider">
+                          GRAND TOTAL :
+                        </span>
+                        <span className="text-[16px] sm:text-[20px] font-bold text-white tracking-wide">
+                          ₹{report.grandTotal.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Page Footer */}
+                    <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                      <div className="text-left">
+                        <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                        <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                      </div>
+                      <div className="text-right text-[8px] text-gray-500 font-medium">
+                        <span>Page 1 of {totalPages}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PAGE 2: Collection Distribution Report */}
+                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
+                    <div>
+                      {/* Header Section */}
+                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                        <div className="text-center flex-1">
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">TAKAFUL DISTRIBUTION</h2>
+                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                        </div>
+                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                      </div>
+
+                      {/* Distribution Summary Table */}
+                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
+                        <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">DISTRIBUTIONS</h4>
+                        {(() => {
+                          const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+                          const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
+                          const distList = [
+                            { head: 'Takaful', amount: remaining },
+                            ...otherDists
+                          ];
+
+                          return (
+                            <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
+                              <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                                <tr className="border-b-2 border-[#222]">
+                                  <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
+                                  <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {distList.map((item, idx) => (
+                                  <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
+                                    <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
+                                    <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          );
+                        })()}
+                        </div>
+                      </div>
+
+                      {/* Page Footer */}
+                      <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
+                        <div className="text-left">
+                          <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
+                          <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
+                          <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        </div>
+                        <div className="text-right text-[8px] text-gray-500 font-medium">
+                          <span>Page 2 of {totalPages}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PAGE 3: Detailed Collection Report */}
+                    <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
+                      <div>
+                        {/* Header Section */}
+                        <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
+                          <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
+                          <div className="text-center flex-1">
+                            <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">
+                              {report.detailedReport.title}
+                            </h2>
+                            <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
+                          </div>
+                          <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
+                        </div>
+
+                        <div className="overflow-x-auto mt-6 report-scroll-container">
                           <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
                             <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
                               <tr className="border-b-2 border-[#222]">
-                                <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
-                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
+                                <th className="p-[7px_8px] border border-[#444] text-center">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
+                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Collection Amount</th>
+                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Contribution %</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {distList.map((item, idx) => (
-                                <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
-                                  <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
-                                  <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
+                              {[...report.detailedReport.rows].sort((a, b) => b.amount - a.amount).map(r => (
+                                <tr key={r.name} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
+                                  <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.name}</td>
+                                  <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{r.amount.toLocaleString('en-IN')}</td>
+                                  <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[100px] whitespace-nowrap">{r.pct}%</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
-                        );
-                      })()}
+                        </div>
+                      </div>
+
+                      {/* Page 3 Footer */}
+                      <div className="border-t border-white/5 pt-6 mt-6 flex justify-between items-end gap-4">
+                        <div className="text-left text-xs text-gray-400">
+                          <div>Total Contributors: <strong className="text-white">{report.detailedReport.totalContributors}</strong></div>
+                          <div className="mt-1">Total Collection: <strong className="text-gold">₹{report.detailedReport.totalCollection.toLocaleString('en-IN')}</strong></div>
+                        </div>
+                        <div className="text-right text-[9px] text-gray-500 font-medium">
+                          <span>Page 3 of {totalPages}</span>
+                        </div>
+                      </div>
                     </div>
+
                   </div>
-                </div>
-
-                {/* Financial Summary (Expense & Balance) */}
-                <div className="border border-white/10 rounded-xl py-3.5 px-6 bg-white/[0.02] mt-6 flex flex-wrap justify-around items-center text-center gap-4">
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Collection</span>
-                    <span className="text-sm font-extrabold text-white mt-1 block">
-                      ₹{report.collectionSummary.total.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Expense</span>
-                    <span className="text-sm font-extrabold text-rose-400 mt-1 block">
-                      ₹{(report.totalExpense || 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
-                  <div>
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Net Balance</span>
-                    <span className="text-sm font-extrabold text-gold mt-1 block">
-                      ₹{(report.netBalance || 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Section 5: Detailed Direct Collections Received Through PROs */}
-                {report.additionalPivotRows && report.additionalPivotRows.length > 0 && (
-                  <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] mt-6">
-                    <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">
-                      DIRECT COLLECTIONS RECEIVED THROUGH PROs
-                    </h4>
-                    <div className="overflow-x-auto report-scroll-container">
-                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                          <tr className="border-b-2 border-[#222]">
-                            <th className="p-[7px_8px] border border-[#444] text-center">PRO Name</th>
-                            {report.additionalColumns.map(col => (
-                              <th key={col} className="p-[7px_8px] border border-[#444] text-center min-w-[80px] whitespace-nowrap">{col}</th>
-                            ))}
-                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Total Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {report.additionalPivotRows.slice(0, 6).map((r, idx) => {
-                            const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
-                            return (
-                              <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
-                                <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.proName}</td>
-                                {report.additionalColumns.map(col => (
-                                  <td key={col} className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[80px] whitespace-nowrap">
-                                    ₹{(r[col] || 0).toLocaleString('en-IN')}
-                                  </td>
-                                ))}
-                                <td className="p-[7px_8px] border border-[#444] text-right font-bold text-gold min-w-[100px] whitespace-nowrap">
-                                  ₹{rowTotal.toLocaleString('en-IN')}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Section 6: Grand Total Highlight Box */}
-                <div className="print-grand-total border-2 border-[#f5c518] bg-[#0d1b2a] rounded-lg py-[6px] px-[20px] text-center mt-6 flex items-center justify-center gap-3">
-                  <span className="text-[14px] sm:text-[16px] font-bold text-gold uppercase tracking-wider">
-                    GRAND TOTAL :
-                  </span>
-                  <span className="text-[16px] sm:text-[20px] font-bold text-white tracking-wide">
-                    ₹{report.grandTotal.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Verified Signatures */}
-              <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
-                <div className="text-left">
-                  <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
-                  <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                  <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
-                </div>
-                <div className="text-right text-[8px] text-gray-500 font-medium">
-                  <span>Page 1 of {totalPages}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* PAGE 2: Collection Distribution Report */}
-            <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
-              <div>
-                {/* Header Section */}
-                <div className="border-b border-white/10 pb-4 mb-6 text-center">
-                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">TAKAFUL DISTRIBUTION</h2>
-                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                </div>
-
-                {/* Distribution Summary Table */}
-                <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                  <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">ALLOCATED PROJECT DISTRIBUTIONS</h4>
-                  {(() => {
-                    const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-                    const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
-                    const distList = [
-                      { head: 'Takaful', amount: remaining },
-                      ...otherDists
-                    ];
-
-                    return (
-                      <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                        <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                          <tr className="border-b-2 border-[#222]">
-                            <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
-                            <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {distList.map((item, idx) => (
-                            <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
-                              <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
-                              <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Page Footer */}
-              <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
-                <div className="text-left">
-                  <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
-                  <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                  <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
-                </div>
-                <div className="text-right text-[8px] text-gray-500 font-medium">
-                  <span>Page 2 of {totalPages}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* PAGE 3: Detailed Collection Report */}
-            <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
-              <div>
-                <div className="border-b border-white/10 pb-4 mb-6 text-center">
-                  <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">
-                    {report.detailedReport.title}
-                  </h2>
-                  <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                </div>
-
-                <div className="overflow-x-auto mt-6 report-scroll-container">
-                  <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                    <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                      <tr className="border-b-2 border-[#222]">
-                        <th className="p-[7px_8px] border border-[#444] text-center">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
-                        <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Collection Amount</th>
-                        <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Contribution %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...report.detailedReport.rows].sort((a, b) => b.amount - a.amount).map(r => (
-                        <tr key={r.name} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
-                          <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.name}</td>
-                          <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{r.amount.toLocaleString('en-IN')}</td>
-                          <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[100px] whitespace-nowrap">{r.pct}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Page 3 Footer */}
-              <div className="border-t border-white/5 pt-6 mt-6 flex justify-between items-end gap-4">
-                <div className="text-left text-xs text-gray-400">
-                  <div>Total Contributors: <strong className="text-white">{report.detailedReport.totalContributors}</strong></div>
-                  <div className="mt-1">Total Collection: <strong className="text-gold">₹{report.detailedReport.totalCollection.toLocaleString('en-IN')}</strong></div>
-                </div>
-                <div className="text-right text-[9px] text-gray-500 font-medium">
-                  <span>Page 3 of {totalPages}</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        )
-      })()}
+                );
+              }
+            })()}
         </div>
       )}
     </div>

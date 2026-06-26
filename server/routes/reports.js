@@ -286,8 +286,46 @@ router.get('/generate', protect, async (req, res) => {
     const collectionFilterName = selectedModuleDoc ? selectedModuleDoc.name : 'All Collections';
     const collectionFilterCode = selectedModuleDoc ? selectedModuleDoc.code : 'all';
 
+    // Determine previous period filter for comparisons
+    let prevFilter = {};
+    if (periodType === 'month') {
+      const yr = Number(year) || new Date().getFullYear();
+      const monthsList = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      let prevMonth = '';
+      let prevYear = yr;
+      const currentIdx = monthsList.indexOf(month);
+      if (currentIdx === 0) {
+        prevMonth = 'December';
+        prevYear = yr - 1;
+      } else {
+        prevMonth = monthsList[currentIdx - 1];
+      }
+      prevFilter = { month: prevMonth, year: prevYear };
+    } 
+    else if (periodType === 'year') {
+      const yr = Number(year) || new Date().getFullYear();
+      prevFilter = { year: yr - 1 };
+    }
+    else if (periodType === 'fy') {
+      const startYear = parseInt(financialYear) || new Date().getFullYear();
+      const prevStartYear = startYear - 1;
+      const prevEndYear = startYear;
+      const prevStart = new Date(Date.UTC(prevStartYear, 3, 1, 0, 0, 0));
+      const prevEnd = new Date(Date.UTC(prevEndYear, 2, 31, 23, 59, 59, 999));
+      prevFilter = { date: { $gte: prevStart, $lte: prevEnd } };
+    }
+    else if (periodType === 'custom') {
+      const start = new Date(fromDate || new Date());
+      const end = new Date(toDate || new Date());
+      const durationMs = end.getTime() - start.getTime();
+      const prevStart = new Date(start.getTime() - durationMs - 1000);
+      const prevEnd = new Date(start.getTime() - 1000);
+      prevFilter = { date: { $gte: prevStart, $lte: prevEnd } };
+    }
+
     // 1. Query collections
     const collections = await Collection.find(filter).populate('pro').populate('module').lean();
+    const prevCollections = await Collection.find(prevFilter).populate('pro').populate('module').lean();
 
     // Query distributions
     const Distribution = require('../models/Distribution');
@@ -302,10 +340,12 @@ router.get('/generate', protect, async (req, res) => {
     // Filter by selected module code level if a specific module is chosen
     let filteredCollections = collections;
     let filteredSponsors = sponsors;
+    let prevFilteredCollections = prevCollections;
 
     if (selectedModuleId) {
       filteredCollections = collections.filter(c => c.module && getModuleId(c.module) === selectedModuleId.toString());
       filteredSponsors = sponsors.filter(s => s.pro && s.pro.module && getModuleId(s.pro.module) === selectedModuleId.toString());
+      prevFilteredCollections = prevCollections.filter(c => c.module && getModuleId(c.module) === selectedModuleId.toString());
     }
 
     // Page 1 Section 1: Sponsors Summary
@@ -523,11 +563,22 @@ router.get('/generate', protect, async (req, res) => {
         if (!c.pro) return;
         const pid = getProId(c.pro);
         if (!proMap[pid]) {
-          proMap[pid] = { name: c.proName || c.pro.name, area: c.pro.area || '—', takafulTotal: 0, additionalTotal: 0, total: 0, status: c.pro.status || 'active' };
+          proMap[pid] = { 
+            proId: pid,
+            name: c.proName || c.pro.name, 
+            designation: c.pro.designation || 'PRO Officer',
+            area: c.pro.area || '—', 
+            takafulTotal: 0, 
+            additionalTotal: 0, 
+            total: 0, 
+            expenseTotal: 0,
+            status: c.pro.status || 'active' 
+          };
         }
         proMap[pid].takafulTotal += (c.amount || 0);
         proMap[pid].additionalTotal += (c.additionalAmount || 0);
         proMap[pid].total += (c.totalAmount || 0);
+        proMap[pid].expenseTotal += (c.expense || 0);
       });
 
       // Include PROs from current module with zero collections
@@ -535,24 +586,63 @@ router.get('/generate', protect, async (req, res) => {
       prosInModule.forEach(p => {
         const pid = p._id.toString();
         if (!proMap[pid]) {
-          proMap[pid] = { name: p.name, area: p.area || '—', takafulTotal: 0, additionalTotal: 0, total: 0, status: p.status };
+          proMap[pid] = { 
+            proId: pid,
+            name: p.name, 
+            designation: p.designation || 'PRO Officer',
+            area: p.area || '—', 
+            takafulTotal: 0, 
+            additionalTotal: 0, 
+            total: 0, 
+            expenseTotal: 0,
+            status: p.status 
+          };
         }
       });
 
+      // Map previous collections by PRO ID for comparison (only if selected filter is PRO collection)
+      const prevProAmtMap = {};
+      if (collectionFilterCode === 'pro') {
+        prevFilteredCollections.forEach(c => {
+          if (!c.pro) return;
+          const pid = getProId(c.pro);
+          if (!prevProAmtMap[pid]) prevProAmtMap[pid] = 0;
+          prevProAmtMap[pid] += (c.amount || 0); // sum Takaful amount (amount)
+        });
+      }
+
+      // Calculate totals
+      const proTakafulTotal = Object.values(proMap).reduce((s, p) => s + p.takafulTotal, 0);
       const proPerfTotal = Object.values(proMap).reduce((s, p) => s + p.total, 0);
 
       detailedReportRows = Object.values(proMap)
-        .sort((a, b) => b.total - a.total)
-        .map((p, idx) => ({
-          rank: idx + 1,
-          name: p.name,
-          area: p.area,
-          takafulAmount: p.takafulTotal,
-          additionalAmount: p.additionalTotal,
-          amount: p.total,
-          pct: proPerfTotal > 0 ? parseFloat((p.total / proPerfTotal * 100).toFixed(1)) : 0,
-          status: p.status
-        }));
+        .sort((a, b) => b.takafulTotal - a.takafulTotal) // Sort by current Takaful collection descending
+        .map((p, idx) => {
+          const prevAmt = prevProAmtMap[p.proId] || 0;
+          const currentAmt = p.takafulTotal;
+          const change = currentAmt - prevAmt;
+          const growthPct = prevAmt > 0 ? parseFloat(((change / prevAmt) * 100).toFixed(1)) : (currentAmt > 0 ? 100 : 0);
+          const expenseAmount = p.expenseTotal;
+          const netBalance = currentAmt - expenseAmount;
+          const expenseRatio = currentAmt > 0 ? parseFloat(((expenseAmount / currentAmt) * 100).toFixed(1)) : 0;
+
+          return {
+            rank: idx + 1,
+            name: p.name,
+            designation: p.designation,
+            area: p.area,
+            takafulAmount: currentAmt,
+            prevAmount: prevAmt,
+            change,
+            growthPct,
+            expenseAmount,
+            netBalance,
+            expenseRatio,
+            amount: p.total,
+            pct: proTakafulTotal > 0 ? parseFloat((currentAmt / proTakafulTotal * 100).toFixed(1)) : 0,
+            status: p.status
+          };
+        });
     }
 
     const detailedReportTotal = detailedReportRows.reduce((sum, r) => sum + r.amount, 0);
