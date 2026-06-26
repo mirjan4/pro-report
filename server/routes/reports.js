@@ -610,6 +610,9 @@ router.get('/generate', protect, async (req, res) => {
         status: p.status
       }));
 
+    const totalExpense = filteredCollections.reduce((sum, c) => sum + (c.expense || 0), 0);
+    const netBalance = totalCollection - totalExpense;
+
     res.json({
       success: true,
       allContributors: allContributorsList,
@@ -620,6 +623,8 @@ router.get('/generate', protect, async (req, res) => {
         collectionFilter: collectionFilterName,
         collectionFilterCode,
         generatedAt: new Date().toISOString(),
+        totalExpense,
+        netBalance,
         
         // Page 1 Section 1
         sponsorsSummary: {

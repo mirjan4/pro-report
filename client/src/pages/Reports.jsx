@@ -78,7 +78,10 @@ const Reports = () => {
 
       const res = await client.get(`/api/reports/generate?${params.toString()}`);
       if (res.data.success) {
-        setReport(res.data.data);
+        setReport({
+          ...res.data.data,
+          allContributors: res.data.allContributors || []
+        });
       }
     } catch (err) {
       console.error('Failed to generate report', err);
@@ -101,131 +104,148 @@ const Reports = () => {
       // Excel Styles Definition (xlsx-js-style format)
       const styles = {
         title: {
-          font: { name: 'Calibri', sz: 16, bold: true, color: { rgb: '0D1B2A' } },
+          fill: { patternType: 'solid', fgColor: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: 'F5C518' } },
           alignment: { horizontal: 'center', vertical: 'center' }
         },
         subtitle: {
-          font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: '555555' } },
+          fill: { patternType: 'solid', fgColor: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: 'DCDCDC' } },
           alignment: { horizontal: 'center', vertical: 'center' }
         },
         sectionHeader: {
-          font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '0D1B2A' } },
+          alignment: { horizontal: 'left', vertical: 'center' }
+        },
+        sideSectionTitle: {
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '0D1B2A' } },
           alignment: { horizontal: 'left', vertical: 'center' }
         },
         tableHeader: {
           fill: { patternType: 'solid', fgColor: { rgb: 'F3F4F6' } },
-          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
-            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'center', vertical: 'center' }
         },
         tableHeaderLeft: {
           fill: { patternType: 'solid', fgColor: { rgb: 'F3F4F6' } },
-          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
-            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'left', vertical: 'center' }
         },
         cellNormal: {
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'left', vertical: 'center' }
         },
         cellNormalRight: {
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'right', vertical: 'center' }
         },
         cellNormalCenter: {
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'center', vertical: 'center' }
         },
         cellShadedNormal: {
-          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'FAFAFA' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'left', vertical: 'center' }
         },
         cellShadedRight: {
-          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'FAFAFA' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'right', vertical: 'center' }
         },
         cellShadedCenter: {
-          fill: { patternType: 'solid', fgColor: { rgb: 'F9FAFB' } },
-          font: { name: 'Calibri', sz: 10, color: { rgb: '333333' } },
+          fill: { patternType: 'solid', fgColor: { rgb: 'FAFAFA' } },
+          font: { name: 'Calibri', sz: 10, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            bottom: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            left: { style: 'thin', color: { rgb: 'E5E7EB' } },
-            right: { style: 'thin', color: { rgb: 'E5E7EB' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'center', vertical: 'center' }
         },
         cellBoldNormal: {
-          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            bottom: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'left', vertical: 'center' }
         },
         cellBoldRight: {
-          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '000000' } },
           border: {
-            top: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            bottom: { style: 'double', color: { rgb: '0D1B2A' } },
-            left: { style: 'thin', color: { rgb: 'CCCCCC' } },
-            right: { style: 'thin', color: { rgb: 'CCCCCC' } }
+            top: { style: 'thin', color: { rgb: '666666' } },
+            bottom: { style: 'thin', color: { rgb: '666666' } },
+            left: { style: 'thin', color: { rgb: '666666' } },
+            right: { style: 'thin', color: { rgb: '666666' } }
           },
           alignment: { horizontal: 'right', vertical: 'center' }
         },
-        grandTotal: {
-          fill: { patternType: 'solid', fgColor: { rgb: '0D1B2A' } },
-          font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'F5C518' } },
+        financialSummary: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'F3F4F6' } },
+          font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: '0D1B2A' } },
           alignment: { horizontal: 'center', vertical: 'center' },
           border: {
-            top: { style: 'medium', color: { rgb: 'F5C518' } },
-            bottom: { style: 'medium', color: { rgb: 'F5C518' } },
-            left: { style: 'medium', color: { rgb: 'F5C518' } },
-            right: { style: 'medium', color: { rgb: 'F5C518' } }
+            top: { style: 'medium', color: { rgb: '0D1B2A' } },
+            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
+            left: { style: 'medium', color: { rgb: '0D1B2A' } },
+            right: { style: 'medium', color: { rgb: '0D1B2A' } }
+          }
+        },
+        grandTotal: {
+          fill: { patternType: 'solid', fgColor: { rgb: 'FFFDE6' } },
+          font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: '0D1B2A' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: { style: 'medium', color: { rgb: '0D1B2A' } },
+            bottom: { style: 'medium', color: { rgb: '0D1B2A' } },
+            left: { style: 'medium', color: { rgb: '0D1B2A' } },
+            right: { style: 'medium', color: { rgb: '0D1B2A' } }
           }
         }
       };
@@ -237,238 +257,291 @@ const Reports = () => {
         return cell;
       };
 
-      // =========================================================================
-      // WORKSHEET 1: TAKAFUL REPORT
-      // =========================================================================
+      const maxCols = Math.max(5, (report.additionalColumns ? report.additionalColumns.length + 2 : 5));
+
       const sheet1Rows = [];
       const sheet1Merges = [];
 
-      // Helper to add section headers
-      const addSectionHeader = (title) => {
-        const rIdx = sheet1Rows.length;
-        sheet1Rows.push([makeCell(title, 's', styles.sectionHeader), {}, {}, {}, {}]);
-        sheet1Merges.push({ s: { r: rIdx, c: 0 }, e: { r: rIdx, c: 4 } });
+      // Title & Subtitle Block
+      sheet1Rows.push(Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(report.title || 'TAKAFUL FINANCIAL YEAR REPORT', 's', styles.title) : {}));
+      sheet1Merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: maxCols - 1 } });
+
+      sheet1Rows.push(Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(report.subtitle || 'FY 2026-27', 's', styles.subtitle) : {}));
+      sheet1Merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: maxCols - 1 } });
+
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 1: NEW SPONSORS ADDED & COLLECTION SUMMARY (side-by-side)
+      // =========================================================================
+      const sideTitleRow = Array.from({ length: maxCols }, () => ({}));
+      sideTitleRow[0] = makeCell('NEW SPONSORS ADDED', 's', styles.sideSectionTitle);
+      sideTitleRow[3] = makeCell('COLLECTION SUMMARY', 's', styles.sideSectionTitle);
+      sheet1Rows.push(sideTitleRow);
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: 1 } });
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 3 }, e: { r: sheet1Rows.length - 1, c: 4 } });
+
+      const sponsorsRows = [
+        ['Premium', report.sponsorsSummary.premium, false],
+        ['Smart', report.sponsorsSummary.smart, true],
+        ['Standard', report.sponsorsSummary.standard, false],
+        ['Total New Sponsors', report.sponsorsSummary.total, false, true]
+      ];
+
+      const collectionRows = [
+        ['Global Collection', report.collectionSummary.global, false],
+        ['PRO Collection', report.collectionSummary.pro, true],
+        ['Office Collection', report.collectionSummary.office, false],
+        ['Total Collection', report.collectionSummary.total, false, true]
+      ];
+
+      for (let i = 0; i < 4; i++) {
+        const row = Array.from({ length: maxCols }, () => ({}));
+        const sRow = sponsorsRows[i];
+        const cRow = collectionRows[i];
+        
+        const sStyleL = sRow[3] ? styles.cellBoldNormal : (sRow[2] ? styles.cellShadedNormal : styles.cellNormal);
+        const sStyleR = sRow[3] ? styles.cellBoldRight : (sRow[2] ? styles.cellShadedRight : styles.cellNormalRight);
+        row[0] = makeCell(sRow[0], 's', sStyleL);
+        row[1] = makeCell(sRow[1], 'n', sStyleR);
+        
+        const cStyleL = cRow[3] ? styles.cellBoldNormal : (cRow[2] ? styles.cellShadedNormal : styles.cellNormal);
+        const cStyleR = cRow[3] ? styles.cellBoldRight : (cRow[2] ? styles.cellShadedRight : styles.cellNormalRight);
+        row[3] = makeCell(cRow[0], 's', cStyleL);
+        row[4] = makeCell(cRow[1], 'n', cStyleR, '"₹"#,##,##0');
+        
+        sheet1Rows.push(row);
+      }
+
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 2: RECRUITERS & PROJECT DISTRIBUTIONS (side-by-side)
+      // =========================================================================
+      const recruitersRows = report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 
+        ? report.sponsorsByRecruiter.map(s => [s.name, s.count])
+        : [['No sponsors added', 0]];
+      
+      const distRemaining = report.collectionDistribution?.remainingTakafulBalance || 0;
+      const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
+      const allocRows = [
+        ['Takaful', distRemaining],
+        ...otherDists.map(item => [item.head, item.amount])
+      ];
+
+      const maxRowsSection2 = Math.max(recruitersRows.length, allocRows.length);
+      const paddedRecruiters = [...recruitersRows];
+      while (paddedRecruiters.length < maxRowsSection2) {
+        paddedRecruiters.push(['', '']);
+      }
+      const paddedAlloc = [...allocRows];
+      while (paddedAlloc.length < maxRowsSection2) {
+        paddedAlloc.push(['', '']);
+      }
+
+      const sideTitleRow2 = Array.from({ length: maxCols }, () => ({}));
+      sideTitleRow2[0] = makeCell('SPONSORS ADDED BY RECRUITER', 's', styles.sideSectionTitle);
+      sideTitleRow2[3] = makeCell('ALLOCATED PROJECT DISTRIBUTIONS', 's', styles.sideSectionTitle);
+      sheet1Rows.push(sideTitleRow2);
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: 1 } });
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 3 }, e: { r: sheet1Rows.length - 1, c: 4 } });
+
+      const rowHeaders2 = Array.from({ length: maxCols }, () => ({}));
+      rowHeaders2[0] = makeCell('PRO / OFFICE RECRUITER', 's', styles.tableHeaderLeft);
+      rowHeaders2[1] = makeCell('SPONSORS COUNT', 's', styles.tableHeader);
+      rowHeaders2[3] = makeCell('HEAD', 's', styles.tableHeaderLeft);
+      rowHeaders2[4] = makeCell('AMOUNT', 's', styles.tableHeader);
+      sheet1Rows.push(rowHeaders2);
+
+      for (let i = 0; i < maxRowsSection2; i++) {
+        const row = Array.from({ length: maxCols }, () => ({}));
+        const rec = paddedRecruiters[i];
+        const alloc = paddedAlloc[i];
+        const isShaded = i % 2 === 1;
+        
+        const styleL = isShaded ? styles.cellShadedNormal : styles.cellNormal;
+        const styleR = isShaded ? styles.cellShadedRight : styles.cellNormalRight;
+        
+        row[0] = makeCell(rec[0], 's', styleL);
+        row[1] = rec[1] === '' ? makeCell('', 's', styleR) : makeCell(rec[1], 'n', styleR);
+        
+        row[3] = makeCell(alloc[0], 's', styleL);
+        row[4] = alloc[1] === '' ? makeCell('', 's', styleR) : makeCell(alloc[1], 'n', styleR, '"₹"#,##,##0');
+        
+        sheet1Rows.push(row);
+      }
+
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 2.5: FINANCIAL SUMMARY (one-line summary)
+      // =========================================================================
+      const finSummaryRowIdx = sheet1Rows.length;
+      const finSummaryText = `TOTAL COLLECTION: ₹ ${(report.collectionSummary.total).toLocaleString('en-IN')}   |   TOTAL EXPENSE: ₹ ${(report.totalExpense || 0).toLocaleString('en-IN')}   |   NET BALANCE: ₹ ${(report.netBalance || 0).toLocaleString('en-IN')}`;
+      const finSummaryRow = Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(finSummaryText, 's', styles.financialSummary) : {});
+      sheet1Rows.push(finSummaryRow);
+      sheet1Merges.push({ s: { r: finSummaryRowIdx, c: 0 }, e: { r: finSummaryRowIdx, c: maxCols - 1 } });
+      
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 3: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
+      // =========================================================================
+      const displayColName = (col) => {
+        if (col.toLowerCase() === 'markaz') return 'MKZ';
+        return col.toUpperCase();
       };
 
-      // Title & Subtitle Block
-      sheet1Rows.push([makeCell(report.title, 's', styles.title), {}, {}, {}, {}]);
-      sheet1Merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
-
-      sheet1Rows.push([makeCell(report.subtitle, 's', styles.subtitle), {}, {}, {}, {}]);
-      sheet1Merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
-
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      // Section 1: NEW SPONSORS ADDED
-      addSectionHeader('NEW SPONSORS ADDED');
-      sheet1Rows.push([
-        makeCell('Sponsor Tier', 's', styles.tableHeaderLeft),
-        makeCell('Count', 's', styles.tableHeader),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Premium', 's', styles.cellNormal),
-        makeCell(report.sponsorsSummary.premium, 'n', styles.cellNormalRight),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Smart', 's', styles.cellShadedNormal),
-        makeCell(report.sponsorsSummary.smart, 'n', styles.cellShadedRight),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Standard', 's', styles.cellNormal),
-        makeCell(report.sponsorsSummary.standard, 'n', styles.cellNormalRight),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Total New Sponsors', 's', styles.cellBoldNormal),
-        makeCell(report.sponsorsSummary.total, 'n', styles.cellBoldRight),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      // Section 2: SPONSORS ADDED BY RECRUITER
-      addSectionHeader('SPONSORS ADDED BY RECRUITER');
-      sheet1Rows.push([
-        makeCell('PRO / Office Recruiter', 's', styles.tableHeaderLeft),
-        makeCell('Sponsors Count', 's', styles.tableHeader),
-        {}, {}, {}
-      ]);
-      if (report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0) {
-        report.sponsorsByRecruiter.forEach((s, idx) => {
-          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
-          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
-          sheet1Rows.push([
-            makeCell(s.name, 's', styleN),
-            makeCell(s.count, 'n', styleR),
-            {}, {}, {}
-          ]);
-        });
-      } else {
-        sheet1Rows.push([
-          makeCell('No sponsors added', 's', styles.cellNormal),
-          makeCell(0, 'n', styles.cellNormalRight),
-          {}, {}, {}
-        ]);
-      }
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      // Section 3: COLLECTION SUMMARY
-      addSectionHeader('COLLECTION SUMMARY');
-      sheet1Rows.push([
-        makeCell('Collection Source', 's', styles.tableHeaderLeft),
-        makeCell('Amount', 's', styles.tableHeader),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Global Collection', 's', styles.cellNormal),
-        makeCell(report.collectionSummary.global, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('PRO Collection', 's', styles.cellShadedNormal),
-        makeCell(report.collectionSummary.pro, 'n', styles.cellShadedRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Office Collection', 's', styles.cellNormal),
-        makeCell(report.collectionSummary.office, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([
-        makeCell('Total Collection', 's', styles.cellBoldNormal),
-        makeCell(report.collectionSummary.total, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      // Section 4: ALLOCATED PROJECT DISTRIBUTIONS
-      addSectionHeader('ALLOCATED PROJECT DISTRIBUTIONS');
-      sheet1Rows.push([
-        makeCell('Head', 's', styles.tableHeaderLeft),
-        makeCell('Amount', 's', styles.tableHeader),
-        {}, {}, {}
-      ]);
-      const remainingTakaful = report.collectionDistribution?.remainingTakafulBalance || 0;
-      sheet1Rows.push([
-        makeCell('Takaful', 's', styles.cellNormal),
-        makeCell(remainingTakaful, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      const activeDists = (report.collectionDistribution?.distributions || []).filter(d => d.amount > 0);
-      activeDists.forEach((d, idx) => {
-        const styleN = idx % 2 === 1 ? styles.cellNormal : styles.cellShadedNormal;
-        const styleR = idx % 2 === 1 ? styles.cellNormalRight : styles.cellShadedRight;
-        sheet1Rows.push([
-          makeCell(d.head, 's', styleN),
-          makeCell(d.amount, 'n', styleR, '"₹"#,##,##0'),
-          {}, {}, {}
-        ]);
-      });
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      // Section 5: DIRECT COLLECTIONS RECEIVED THROUGH PROs
-      addSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs');
-      sheet1Rows.push([
-        makeCell('Name', 's', styles.tableHeaderLeft),
-        makeCell('Amount', 's', styles.tableHeader),
-        {}, {}, {}
-      ]);
       const validPivotRows = (report.additionalPivotRows || []).filter(r => {
         const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
         return total > 0;
       });
+
+      const pivotTitleRow = Array.from({ length: maxCols }, () => ({}));
+      pivotTitleRow[0] = makeCell('DIRECT COLLECTIONS RECEIVED THROUGH PROs', 's', styles.sectionHeader);
+      sheet1Rows.push(pivotTitleRow);
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: maxCols - 1 } });
+
+      const pivotHeaderRow = Array.from({ length: maxCols }, () => ({}));
+      pivotHeaderRow[0] = makeCell('PRO NAME', 's', styles.tableHeaderLeft);
+      report.additionalColumns.forEach((col, idx) => {
+        pivotHeaderRow[idx + 1] = makeCell(displayColName(col), 's', styles.tableHeader);
+      });
+      pivotHeaderRow[report.additionalColumns.length + 1] = makeCell('TOTAL AMOUNT', 's', styles.tableHeader);
+      sheet1Rows.push(pivotHeaderRow);
+
       if (validPivotRows.length > 0) {
         validPivotRows.forEach((r, idx) => {
-          const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
-          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
-          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
-          sheet1Rows.push([
-            makeCell(r.proName, 's', styleN),
-            makeCell(total, 'n', styleR, '"₹"#,##,##0'),
-            {}, {}, {}
-          ]);
+          const row = Array.from({ length: maxCols }, () => ({}));
+          const isShaded = idx % 2 === 1;
+          const styleL = isShaded ? styles.cellShadedNormal : styles.cellNormal;
+          const styleR = isShaded ? styles.cellShadedRight : styles.cellNormalRight;
+          
+          row[0] = makeCell(r.proName, 's', styleL);
+          report.additionalColumns.forEach((col, cIdx) => {
+            row[cIdx + 1] = makeCell(r[col] || 0, 'n', styleR, '"₹"#,##,##0');
+          });
+          const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+          row[report.additionalColumns.length + 1] = makeCell(rowTotal, 'n', styleR, '"₹"#,##,##0');
+          
+          sheet1Rows.push(row);
+        });
+        
+        // Subtotal Row
+        const subtotalRow = Array.from({ length: maxCols }, () => ({}));
+        subtotalRow[0] = makeCell('Subtotal', 's', styles.cellBoldNormal);
+        report.additionalColumns.forEach((col, cIdx) => {
+          const colSum = validPivotRows.reduce((sum, r) => sum + (r[col] || 0), 0);
+          subtotalRow[cIdx + 1] = makeCell(colSum, 'n', styles.cellBoldRight, '"₹"#,##,##0');
+        });
+        subtotalRow[report.additionalColumns.length + 1] = makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0');
+        
+        sheet1Rows.push(subtotalRow);
+      } else {
+        const row = Array.from({ length: maxCols }, () => ({}));
+        row[0] = makeCell('No direct collections', 's', styles.cellNormal);
+        row[1] = makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0');
+        sheet1Rows.push(row);
+      }
+
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 4: PRO COLLECTION DETAIL (No STATUS column)
+      // =========================================================================
+      const proDetailTitleRow = Array.from({ length: maxCols }, () => ({}));
+      proDetailTitleRow[0] = makeCell('PRO COLLECTION DETAIL', 's', styles.sectionHeader);
+      sheet1Rows.push(proDetailTitleRow);
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: maxCols - 1 } });
+
+      const proDetailHeaderRow = Array.from({ length: maxCols }, () => ({}));
+      proDetailHeaderRow[0] = makeCell('PRO NAME', 's', styles.tableHeaderLeft);
+      proDetailHeaderRow[1] = makeCell('COLLECTION (TAKAFUL)', 's', styles.tableHeader);
+      proDetailHeaderRow[2] = makeCell('ADDITIONAL COLLECTION', 's', styles.tableHeader);
+      proDetailHeaderRow[3] = makeCell('TOTAL PERFORMANCE', 's', styles.tableHeader);
+      sheet1Rows.push(proDetailHeaderRow);
+
+      const contributors = report.allContributors || [];
+      if (contributors.length > 0) {
+        contributors.forEach((c, idx) => {
+          const row = Array.from({ length: maxCols }, () => ({}));
+          const isShaded = idx % 2 === 1;
+          const styleL = isShaded ? styles.cellShadedNormal : styles.cellNormal;
+          const styleR = isShaded ? styles.cellShadedRight : styles.cellNormalRight;
+          
+          row[0] = makeCell(c.name, 's', styleL);
+          row[1] = makeCell(c.takafulAmount || 0, 'n', styleR, '"₹"#,##,##0');
+          row[2] = makeCell(c.additionalAmount || 0, 'n', styleR, '"₹"#,##,##0');
+          row[3] = makeCell(c.amount || 0, 'n', styleR, '"₹"#,##,##0');
+          
+          sheet1Rows.push(row);
         });
       } else {
-        sheet1Rows.push([
-          makeCell('No direct collections', 's', styles.cellNormal),
-          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-          {}, {}, {}
-        ]);
+        const row = Array.from({ length: maxCols }, () => ({}));
+        row[0] = makeCell('No contributor detail available', 's', styles.cellNormal);
+        row[1] = makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0');
+        row[2] = makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0');
+        row[3] = makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0');
+        sheet1Rows.push(row);
       }
-      sheet1Rows.push([
-        makeCell('Subtotal', 's', styles.cellBoldNormal),
-        makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
-        {}, {}, {}
-      ]);
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
 
-      // Section 6: CATEGORY RANKINGS / RANKINGS
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 5: RANKINGS (No STATUS column)
+      // =========================================================================
       const rankTitle = report.collectionFilterCode === 'all' ? 'CATEGORY RANKINGS' : 'RANKINGS';
-      addSectionHeader(rankTitle);
-      
       const isAllFilter = report.collectionFilterCode === 'all';
-      if (isAllFilter) {
-        sheet1Rows.push([
-          makeCell('Rank', 's', styles.tableHeader),
-          makeCell('Category', 's', styles.tableHeaderLeft),
-          makeCell('Collection Amount', 's', styles.tableHeader),
-          makeCell('Contribution %', 's', styles.tableHeader),
-          {}
-        ]);
-      } else {
-        sheet1Rows.push([
-          makeCell('Rank', 's', styles.tableHeader),
-          makeCell('PRO Name', 's', styles.tableHeaderLeft),
-          makeCell('Collection Amount', 's', styles.tableHeader),
-          makeCell('Contribution %', 's', styles.tableHeader),
-          makeCell('Status', 's', styles.tableHeader)
-        ]);
-      }
 
-      if (report.detailedReport && report.detailedReport.rows) {
-        const sortedReportRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
-        sortedReportRows.forEach((r, idx) => {
-          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
-          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
-          const styleC = idx % 2 === 0 ? styles.cellNormalCenter : styles.cellShadedCenter;
-          if (isAllFilter) {
-            sheet1Rows.push([
-              makeCell(r.rank, 'n', styleC),
-              makeCell(r.name, 's', styleN),
-              makeCell(r.amount, 'n', styleR, '"₹"#,##,##0'),
-              makeCell(`${r.pct}%`, 's', styleR),
-              {}
-            ]);
-          } else {
-            sheet1Rows.push([
-              makeCell(r.rank, 'n', styleC),
-              makeCell(r.name, 's', styleN),
-              makeCell(r.amount, 'n', styleR, '"₹"#,##,##0'),
-              makeCell(`${r.pct}%`, 's', styleR),
-              makeCell((r.status || '').toUpperCase(), 's', styleC)
-            ]);
-          }
-        });
-      }
-      sheet1Rows.push([{}, {}, {}, {}, {}]); // Spacer
+      const rankTitleRow = Array.from({ length: maxCols }, () => ({}));
+      rankTitleRow[0] = makeCell(rankTitle, 's', styles.sectionHeader);
+      sheet1Rows.push(rankTitleRow);
+      sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: maxCols - 1 } });
 
-      // Grand Total Footer Row
+      const rankHeaderRow = Array.from({ length: maxCols }, () => ({}));
+      rankHeaderRow[0] = makeCell('RANK', 's', styles.tableHeader);
+      rankHeaderRow[1] = makeCell(isAllFilter ? 'CATEGORY' : 'PRO NAME', 's', styles.tableHeaderLeft);
+      rankHeaderRow[2] = makeCell('COLLECTION AMOUNT', 's', styles.tableHeader);
+      rankHeaderRow[3] = makeCell('CONTRIBUTION %', 's', styles.tableHeader);
+      sheet1Rows.push(rankHeaderRow);
+
+      const sortedDetailedRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
+      sortedDetailedRows.forEach((r, idx) => {
+        const row = Array.from({ length: maxCols }, () => ({}));
+        const isShaded = idx % 2 === 1;
+        const styleL = isShaded ? styles.cellShadedNormal : styles.cellNormal;
+        const styleR = isShaded ? styles.cellShadedRight : styles.cellNormalRight;
+        const styleC = isShaded ? styles.cellShadedCenter : styles.cellNormalCenter;
+        
+        row[0] = makeCell(r.rank, 'n', styleC);
+        row[1] = makeCell(r.name, 's', styleL);
+        row[2] = makeCell(r.amount, 'n', styleR, '"₹"#,##,##0');
+        row[3] = makeCell(`${r.pct}%`, 's', styleR);
+        
+        sheet1Rows.push(row);
+      });
+
+      sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
+
+      // =========================================================================
+      // ROW 6: GRAND TOTAL FOOTER BLOCK
+      // =========================================================================
       const grandTotalRowIdx = sheet1Rows.length;
-      sheet1Rows.push([
-        makeCell(`GRAND TOTAL : ₹ ${report.grandTotal.toLocaleString('en-IN')}`, 's', styles.grandTotal),
-        {}, {}, {}, {}
-      ]);
-      sheet1Merges.push({ s: { r: grandTotalRowIdx, c: 0 }, e: { r: grandTotalRowIdx, c: 4 } });
+      const grandTotalRow = Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(`GRAND TOTAL : ₹ ${report.grandTotal.toLocaleString('en-IN')}`, 's', styles.grandTotal) : {});
+      sheet1Rows.push(grandTotalRow);
+      sheet1Merges.push({ s: { r: grandTotalRowIdx, c: 0 }, e: { r: grandTotalRowIdx, c: maxCols - 1 } });
 
       const sheet1 = XLSX.utils.aoa_to_sheet(sheet1Rows);
       sheet1['!merges'] = sheet1Merges;
 
-      // Auto-fit column widths
+      // Auto-fit column widths (ignoring title/subtitle/section titles/grand total rows)
       const autoFitCols = (ws, rows) => {
         const colWidths = [];
-        rows.forEach(row => {
+        rows.forEach((row, rIdx) => {
+          if (rIdx === 0 || rIdx === 1 || rIdx === rows.length - 1) return;
+          const hasMultipleValues = row.filter(cell => cell && cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== '').length > 1;
+          if (!hasMultipleValues) return;
+
           row.forEach((cell, cIdx) => {
             let val = "";
             if (cell && cell.v !== undefined && cell.v !== null) {
@@ -483,81 +556,17 @@ const Reports = () => {
             }
           });
         });
-        ws['!cols'] = colWidths.map(w => ({ wch: Math.max(w + 3, 10) }));
+        ws['!cols'] = colWidths.map((w, idx) => {
+          if (idx === 2) return { wch: 4 };
+          return { wch: Math.max(w + 3, 12) };
+        });
       };
       autoFitCols(sheet1, sheet1Rows);
 
-      // A4 portrait and print settings
       sheet1['!pageSetup'] = { orientation: 'portrait', paperSize: 9 };
       sheet1['!views'] = [{ showGridLines: true }];
 
       XLSX.utils.book_append_sheet(workbook, sheet1, 'TAKAFUL REPORT');
-
-      // =========================================================================
-      // WORKSHEET 2: CONTRIBUTOR DETAILS
-      // =========================================================================
-      const sheet2Rows = [];
-      const sheet2Merges = [];
-
-      sheet2Rows.push([makeCell('CONTRIBUTOR PERFORMANCE DETAILS', 's', styles.title), {}, {}, {}, {}]);
-      sheet2Merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
-
-      sheet2Rows.push([makeCell(report.subtitle, 's', styles.subtitle), {}, {}, {}, {}]);
-      sheet2Merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
-
-      sheet2Rows.push([{}, {}, {}, {}, {}]); // Spacer
-
-      sheet2Rows.push([
-        makeCell('Rank', 's', styles.tableHeader),
-        makeCell('Name', 's', styles.tableHeaderLeft),
-        makeCell('Collection (Takaful)', 's', styles.tableHeader),
-        makeCell('Additional Collection', 's', styles.tableHeader),
-        makeCell('Total Performance', 's', styles.tableHeader)
-      ]);
-
-      const contributors = report.allContributors || report.detailedReport?.rows || [];
-      if (contributors.length > 0) {
-        contributors.forEach((c, idx) => {
-          const styleN = idx % 2 === 0 ? styles.cellNormal : styles.cellShadedNormal;
-          const styleR = idx % 2 === 0 ? styles.cellNormalRight : styles.cellShadedRight;
-          const styleC = idx % 2 === 0 ? styles.cellNormalCenter : styles.cellShadedCenter;
-          sheet2Rows.push([
-            makeCell(c.rank, 'n', styleC),
-            makeCell(c.name, 's', styleN),
-            makeCell(c.takafulAmount || 0, 'n', styleR, '"₹"#,##,##0'),
-            makeCell(c.additionalAmount || 0, 'n', styleR, '"₹"#,##,##0'),
-            makeCell(c.amount || 0, 'n', styleR, '"₹"#,##,##0')
-          ]);
-        });
-      } else {
-        sheet2Rows.push([
-          makeCell('-', 's', styles.cellNormalCenter),
-          makeCell('No contributor data available', 's', styles.cellNormal),
-          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0'),
-          makeCell(0, 'n', styles.cellNormalRight, '"₹"#,##,##0')
-        ]);
-      }
-
-      // Total row at the end of Worksheet 2
-      const sheet2TotalRowIdx = sheet2Rows.length;
-      sheet2Rows.push([
-        makeCell('Total', 's', styles.cellBoldNormal),
-        makeCell('', 's', styles.cellBoldNormal),
-        makeCell(report.collectionSummary.total, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
-        makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0'),
-        makeCell(report.grandTotal, 'n', styles.cellBoldRight, '"₹"#,##,##0')
-      ]);
-      sheet2Merges.push({ s: { r: sheet2TotalRowIdx, c: 0 }, e: { r: sheet2TotalRowIdx, c: 1 } });
-
-      const sheet2 = XLSX.utils.aoa_to_sheet(sheet2Rows);
-      sheet2['!merges'] = sheet2Merges;
-      autoFitCols(sheet2, sheet2Rows);
-
-      sheet2['!pageSetup'] = { orientation: 'portrait', paperSize: 9 };
-      sheet2['!views'] = [{ showGridLines: true }];
-
-      XLSX.utils.book_append_sheet(workbook, sheet2, 'CONTRIBUTOR DETAILS');
 
       // Set print repeating header rows
       if (!workbook.Workbook) workbook.Workbook = {};
@@ -566,11 +575,6 @@ const Reports = () => {
           Name: '_xlnm.Print_Titles',
           Ref: "'TAKAFUL REPORT'!$1:$2",
           Sheet: 0
-        },
-        {
-          Name: '_xlnm.Print_Titles',
-          Ref: "'CONTRIBUTOR DETAILS'!$1:$4",
-          Sheet: 1
         }
       ];
 
@@ -578,12 +582,13 @@ const Reports = () => {
       XLSX.writeFile(workbook, `Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.xlsx`);
     } catch (err) {
       console.error(err);
-      alert('Failed to generate Excel sheets');
+      alert('Failed to generate Excel sheet');
     } finally {
       setExportingExcel(false);
     }
   };
 
+  // EXPORT TO PDF
   // EXPORT TO PDF
   const handleExportPDF = () => {
     if (!report) return;
@@ -599,42 +604,74 @@ const Reports = () => {
       doc.addFileToVFS('Roboto-Regular.ttf', ROBOTO_FONT_BASE64);
       doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
       doc.addFont('Roboto-Regular.ttf', 'Roboto', 'bold');
-      doc.setFont('Roboto');
+      doc.setFont('Roboto', 'normal');
 
       const pageWidth = doc.internal.pageSize.width; // 210
       const pageHeight = doc.internal.pageSize.height; // 297
-      const margin = 15;
-      let currentY = 48;
+      let currentY = 38; // Content starts below Y=32 divider (around 38mm)
 
-      // Layout helper: ensure there is enough vertical space or add a page
-      const ensureSpace = (heightNeeded) => {
-        if (currentY + heightNeeded > pageHeight - margin) {
+      // Spacing checker helper to prevent widow/orphan rows and section splits
+      const checkTableSpacing = (rowCount, hasTitle = true) => {
+        const tableHeight = 8 + (rowCount * 6.5); // header (8) + rows
+        const sectionHeight = tableHeight + (hasTitle ? (8 + 4) : 0);
+        
+        // If it fits entirely on current page
+        if (currentY + sectionHeight <= pageHeight - 25) {
+          return;
+        }
+        
+        // If it can't fit on a single page anyway
+        if (sectionHeight > (pageHeight - 25 - 38)) {
+          const minHeight = (hasTitle ? (8 + 4) : 0) + 8 + (3 * 6.5);
+          if (currentY + minHeight > pageHeight - 25) {
+            doc.addPage();
+            currentY = 38;
+          }
+        } else {
+          // Move the whole section to next page
           doc.addPage();
-          // Running page header on pages 2+
-          doc.setDrawColor(13, 27, 42);
-          doc.setLineWidth(0.3);
-          doc.line(15, 15, 195, 15);
-          
-          doc.setFont('Roboto', 'normal');
-          doc.setFontSize(8);
-          doc.setTextColor(100, 100, 100);
-          doc.text(report.title, 15, 12);
-          doc.text(report.subtitle, 195, 12, { align: 'right' });
-          
-          currentY = 22; // Start Y on new page
+          currentY = 38;
         }
       };
 
-      // Header block on Page 1 (Centered title and subtitle)
-      doc.setFont('Roboto', 'bold');
-      doc.setFontSize(20);
-      doc.setTextColor(13, 27, 42); // Dark Blue
-      doc.text(report.title, 105, 23, { align: 'center' });
+      // Table outer border drawing helper
+      const drawTableOuterBorder = (table, startPage, startY, width = 190) => {
+        const endPage = doc.internal.getCurrentPageInfo().pageNumber;
+        const endY = table.finalY;
+        const left = table.settings.margin.left;
+        
+        doc.setDrawColor(102, 102, 102); // #666
+        doc.setLineWidth(0.6); // 2px equivalent border
+        
+        for (let p = startPage; p <= endPage; p++) {
+          doc.setPage(p);
+          let topY = (p === startPage) ? startY : 38;
+          let bottomY = (p === endPage) ? endY : (pageHeight - 25);
+          doc.rect(left, topY, width, bottomY - topY);
+        }
+      };
 
-      doc.setFont('Roboto', 'normal');
-      doc.setFontSize(11);
-      doc.setTextColor(100, 100, 100);
-      doc.text(report.subtitle, 105, 30, { align: 'center' });
+      // Helper to draw outer border for side-by-side tables
+      const drawSideBySideOuterBorder = (startX, startY, width, height) => {
+        doc.setDrawColor(102, 102, 102); // #666
+        doc.setLineWidth(0.6); // 2px equivalent border
+        doc.rect(startX, startY, width, height);
+      };
+
+      // Helper to render section title text
+      const renderSectionHeader = (title, rowCount) => {
+        checkTableSpacing(rowCount, true);
+        doc.setFont('Roboto', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(13, 27, 42); // Dark Blue
+        
+        if (currentY > 38) {
+          currentY += 8; // 8mm margin above title
+        }
+        
+        doc.text(title, 10, currentY);
+        currentY += 4; // 4mm below title (table startY)
+      };
 
       // Shared table style rules (Print-first, dark gray borders, light gray headers)
       const tableOptions = {
@@ -643,45 +680,46 @@ const Reports = () => {
           fontSize: 10, 
           cellPadding: 2.1, // ~6px padding
           valign: 'middle', 
-          lineColor: [120, 120, 120], 
-          lineWidth: 0.15,
+          lineColor: [102, 102, 102], // #666
+          lineWidth: 0.25,
           textColor: [0, 0, 0],
           font: 'Roboto'
         },
         headStyles: { 
-          fillColor: [240, 240, 240], 
+          fillColor: [243, 244, 246], // #F3F4F6
           textColor: [0, 0, 0], 
-          fontSize: 11, 
           fontStyle: 'bold', 
           halign: 'center',
-          lineColor: [100, 100, 100], 
-          lineWidth: 0.3,
+          lineColor: [102, 102, 102], 
+          lineWidth: 0.25,
           font: 'Roboto'
         },
-        margin: { left: 15, right: 15 },
-        tableWidth: 180
-      };
-
-      // Helper to render section title text
-      const renderSectionHeader = (title) => {
-        ensureSpace(28); // Ensure header + minimum space for starting table fits
-        doc.setFont('Roboto', 'bold');
-        doc.setFontSize(13);
-        doc.setTextColor(13, 27, 42); // Dark Blue section titles
-        doc.text(title, 15, currentY);
-        currentY += 5; // Spacing below title
+        alternateRowStyles: {
+          fillColor: [250, 250, 250] // #FAFAFA
+        },
+        margin: { left: 10, right: 10, top: 38, bottom: 25 },
+        tableWidth: 190,
+        didParseCell: function(data) {
+          if (data.section === 'body') {
+            const text = data.cell.text.join('').trim();
+            if (text.startsWith('₹') || data.column.dataKey === 'amount' || data.column.dataKey === 'total') {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.halign = 'right';
+            }
+          }
+        }
       };
 
       // =========================================================================
-      // TOP SECTION: NEW SPONSORS ADDED & COLLECTION SUMMARY (2-column layout)
+      // PAGE 1 - ROW 1: NEW SPONSORS ADDED & COLLECTION SUMMARY (2-column layout)
       // =========================================================================
-      ensureSpace(15 + 4 * 8); // 4 rows * ~8mm + header/title padding
+      // Title layout spacing
       doc.setFont('Roboto', 'bold');
-      doc.setFontSize(13);
+      doc.setFontSize(11);
       doc.setTextColor(13, 27, 42);
-      doc.text('NEW SPONSORS ADDED', 15, currentY);
+      doc.text('NEW SPONSORS ADDED', 10, currentY);
       doc.text('COLLECTION SUMMARY', 110, currentY);
-      currentY += 5;
+      currentY += 4;
 
       const pageBeforeSec1 = doc.internal.getCurrentPageInfo().pageNumber;
 
@@ -704,22 +742,15 @@ const Reports = () => {
         ...tableOptions,
         body: sponsorsRows,
         startY: currentY,
-        margin: { left: 15 },
-        tableWidth: 85,
+        margin: { left: 10 },
+        tableWidth: 90,
         columnStyles: {
           0: { fontStyle: 'normal' },
           1: { fontStyle: 'bold', halign: 'right', cellWidth: 25 }
         },
-        didParseCell: function(data) {
-          if (data.row.index === 3) {
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fillColor = [245, 245, 245];
-          }
-        },
         rowPageBreak: 'avoid'
       });
       const leftY1 = doc.lastAutoTable.finalY;
-      const leftPage1 = doc.internal.getCurrentPageInfo().pageNumber;
 
       // Switch back to start page
       doc.setPage(pageBeforeSec1);
@@ -730,30 +761,24 @@ const Reports = () => {
         body: collectionRows,
         startY: currentY,
         margin: { left: 110 },
-        tableWidth: 85,
+        tableWidth: 90,
         columnStyles: {
           0: { fontStyle: 'normal' },
           1: { fontStyle: 'bold', halign: 'right', cellWidth: 35 }
         },
-        didParseCell: function(data) {
-          if (data.row.index === 3) {
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fillColor = [245, 245, 245];
-          }
-        },
         rowPageBreak: 'avoid'
       });
       const rightY1 = doc.lastAutoTable.finalY;
-      const rightPage1 = doc.internal.getCurrentPageInfo().pageNumber;
 
-      const maxPage1 = Math.max(leftPage1, rightPage1);
-      doc.setPage(maxPage1);
-      currentY = (leftPage1 === rightPage1) 
-        ? Math.max(leftY1, rightY1) + 12 
-        : (leftPage1 > rightPage1 ? leftY1 : rightY1) + 12;
+      // Draw borders for Row 1
+      const height1 = leftY1 - currentY;
+      drawSideBySideOuterBorder(10, currentY, 90, height1);
+      drawSideBySideOuterBorder(110, currentY, 90, height1);
+
+      currentY = leftY1;
 
       // =========================================================================
-      // SECOND SECTION: RECRUITERS & PROJECT DISTRIBUTIONS (2-column layout)
+      // PAGE 1 - ROW 2: RECRUITERS & PROJECT DISTRIBUTIONS (2-column layout)
       // =========================================================================
       const recruitersRows = report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 
         ? report.sponsorsByRecruiter.map(s => [s.name, String(s.count)])
@@ -777,13 +802,22 @@ const Reports = () => {
         paddedAlloc.push(['', '']);
       }
 
-      ensureSpace(15 + maxRowsSection2 * 8); // ~8mm per row + header/title padding
+      // Check if Row 2 fits on Page 1.
+      // Margin above (8), Title (4), Table margin (4), Header (8), rows (maxRowsSection2 * 6.5)
+      const heightNeededRow2 = 24 + maxRowsSection2 * 6.5;
+      if (currentY + heightNeededRow2 > pageHeight - 25) {
+        doc.addPage();
+        currentY = 38;
+      } else {
+        currentY += 8; // 8mm margin above title
+      }
+
       doc.setFont('Roboto', 'bold');
-      doc.setFontSize(13);
+      doc.setFontSize(11);
       doc.setTextColor(13, 27, 42);
-      doc.text('SPONSORS ADDED BY RECRUITER', 15, currentY);
+      doc.text('SPONSORS ADDED BY RECRUITER', 10, currentY);
       doc.text('ALLOCATED PROJECT DISTRIBUTIONS', 110, currentY);
-      currentY += 5;
+      currentY += 4;
 
       const pageBeforeSec2 = doc.internal.getCurrentPageInfo().pageNumber;
 
@@ -793,8 +827,8 @@ const Reports = () => {
         head: [['PRO / OFFICE RECRUITER', 'SPONSORS COUNT']],
         body: paddedRecruiters,
         startY: currentY,
-        margin: { left: 15 },
-        tableWidth: 85,
+        margin: { left: 10 },
+        tableWidth: 90,
         columnStyles: {
           0: { fontStyle: 'normal' },
           1: { fontStyle: 'bold', halign: 'right', cellWidth: 25 }
@@ -802,7 +836,6 @@ const Reports = () => {
         rowPageBreak: 'avoid'
       });
       const leftY2 = doc.lastAutoTable.finalY;
-      const leftPage2 = doc.internal.getCurrentPageInfo().pageNumber;
 
       // Switch back to start page
       doc.setPage(pageBeforeSec2);
@@ -810,11 +843,11 @@ const Reports = () => {
       // Right Table: Project Distributions
       doc.autoTable({
         ...tableOptions,
-        head: [['HEAD', 'AMOUNT (Rs.)']],
+        head: [['HEAD', 'AMOUNT']],
         body: paddedAlloc,
         startY: currentY,
         margin: { left: 110 },
-        tableWidth: 85,
+        tableWidth: 90,
         columnStyles: {
           0: { fontStyle: 'normal' },
           1: { fontStyle: 'bold', halign: 'right', cellWidth: 35 }
@@ -822,16 +855,69 @@ const Reports = () => {
         rowPageBreak: 'avoid'
       });
       const rightY2 = doc.lastAutoTable.finalY;
-      const rightPage2 = doc.internal.getCurrentPageInfo().pageNumber;
 
-      const maxPage2 = Math.max(leftPage2, rightPage2);
-      doc.setPage(maxPage2);
-      currentY = (leftPage2 === rightPage2) 
-        ? Math.max(leftY2, rightY2) + 12 
-        : (leftPage2 > rightPage2 ? leftY2 : rightY2) + 12;
+      // Draw borders for Row 2
+      const height2 = leftY2 - currentY;
+      drawSideBySideOuterBorder(10, currentY, 90, height2);
+      drawSideBySideOuterBorder(110, currentY, 90, height2);
+
+      // Force page break to Page 2
+      doc.addPage();
+      currentY = 38;
 
       // =========================================================================
-      // THIRD SECTION: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
+      // PAGE 2: FINANCIAL SUMMARY (Expense & Balance)
+      // =========================================================================
+      renderSectionHeader('FINANCIAL SUMMARY', 1);
+      const pageBeforeSummary = doc.internal.getCurrentPageInfo().pageNumber;
+      const summaryStartY = currentY;
+
+      const summaryRows = [[
+        'Total Collection\n₹' + report.collectionSummary.total.toLocaleString('en-IN'),
+        'Total Expense\n₹' + (report.totalExpense || 0).toLocaleString('en-IN'),
+        'Net Balance\n₹' + (report.netBalance || 0).toLocaleString('en-IN')
+      ]];
+
+      doc.autoTable({
+        ...tableOptions,
+        body: summaryRows,
+        startY: currentY,
+        theme: 'grid',
+        styles: { 
+          fontSize: 10, 
+          cellPadding: 3, 
+          valign: 'middle', 
+          lineColor: [102, 102, 102], // Gray internal borders
+          lineWidth: 0.25,
+          textColor: [0, 0, 0],
+          font: 'Roboto',
+          fillColor: [243, 244, 246], // Light gray background
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        columnStyles: {
+          0: { cellWidth: 63.3 },
+          1: { cellWidth: 63.3 },
+          2: { cellWidth: 63.3 }
+        }
+      });
+      // Draw dark blue outer border
+      const endPageSummary = doc.internal.getCurrentPageInfo().pageNumber;
+      const endYSummary = doc.lastAutoTable.finalY;
+      const leftSummary = doc.lastAutoTable.settings.margin.left;
+      doc.setDrawColor(13, 27, 42); // Dark Blue border
+      doc.setLineWidth(0.6); // 2px equivalent border
+      for (let p = pageBeforeSummary; p <= endPageSummary; p++) {
+        doc.setPage(p);
+        let topY = (p === pageBeforeSummary) ? summaryStartY : 38;
+        let bottomY = (p === endPageSummary) ? endYSummary : (pageHeight - 25);
+        doc.rect(leftSummary, topY, 190, bottomY - topY);
+      }
+      doc.setPage(endPageSummary);
+      currentY = doc.lastAutoTable.finalY + 6; // Spacing below summary is 6mm
+
+      // =========================================================================
+      // PAGE 2: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
       // =========================================================================
       const displayColName = (col) => {
         if (col.toLowerCase() === 'markaz') return 'MKZ';
@@ -854,14 +940,16 @@ const Reports = () => {
       });
 
       const subtotalRowIdx = pivotRows.length;
-      pivotRows.push([
-        'Subtotal',
-        ...report.additionalColumns.map(col => {
-          const colSum = validPivotRows.reduce((sum, r) => sum + (r[col] || 0), 0);
-          return '₹' + colSum.toLocaleString('en-IN');
-        }),
-        '₹' + report.additionalSubtotal.toLocaleString('en-IN')
-      ]);
+      if (pivotRows.length > 0) {
+        pivotRows.push([
+          'Subtotal',
+          ...report.additionalColumns.map(col => {
+            const colSum = validPivotRows.reduce((sum, r) => sum + (r[col] || 0), 0);
+            return '₹' + colSum.toLocaleString('en-IN');
+          }),
+          '₹' + report.additionalSubtotal.toLocaleString('en-IN')
+        ]);
+      }
 
       const pivotColumnStyles = {
         0: { fontStyle: 'bold' }
@@ -871,89 +959,180 @@ const Reports = () => {
       });
       pivotColumnStyles[report.additionalColumns.length + 1] = { halign: 'right', fontStyle: 'bold' };
 
-      renderSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs');
+      const pivotBody = pivotRows.length > 0 ? pivotRows : [['No direct collections', '₹0']];
+      
+      renderSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs', pivotBody.length);
+      const pageBeforePivot = doc.internal.getCurrentPageInfo().pageNumber;
+      const pivotStartY = currentY;
+
       doc.autoTable({
         ...tableOptions,
         head: pivotHeaders,
-        body: pivotRows.length > 1 ? pivotRows : [['No direct collections', '₹0']],
+        body: pivotBody,
         startY: currentY,
         columnStyles: pivotColumnStyles,
         didParseCell: function(data) {
-          if (pivotRows.length > 1 && data.row.index === subtotalRowIdx) {
+          if (pivotRows.length > 0 && data.row.index === subtotalRowIdx && data.section === 'body') {
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.fillColor = [245, 245, 245];
           }
+          // Default cell amount formatting logic
+          if (data.section === 'body') {
+            const text = data.cell.text.join('').trim();
+            if (text.startsWith('₹') || data.column.dataKey === 'amount' || data.column.dataKey === 'total') {
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.halign = 'right';
+            }
+          }
         }
       });
-      currentY = doc.lastAutoTable.finalY + 10;
+      drawTableOuterBorder(doc.lastAutoTable, pageBeforePivot, pivotStartY, 190);
+      currentY = doc.lastAutoTable.finalY;
 
       // =========================================================================
-      // FOURTH SECTION: CATEGORY RANKINGS / RANKINGS
+      // PAGE 2: PRO COLLECTION DETAIL (No STATUS column)
+      // =========================================================================
+      const proDetailRows = (report.allContributors && report.allContributors.length > 0)
+        ? report.allContributors.map(c => [
+            c.name,
+            '₹' + (c.takafulAmount || 0).toLocaleString('en-IN'),
+            '₹' + (c.additionalAmount || 0).toLocaleString('en-IN'),
+            '₹' + (c.amount || 0).toLocaleString('en-IN')
+          ])
+        : [['No contributor detail available', '₹0', '₹0', '₹0']];
+
+      renderSectionHeader('PRO COLLECTION DETAIL', proDetailRows.length);
+      const pageBeforeDetail = doc.internal.getCurrentPageInfo().pageNumber;
+      const detailStartY = currentY;
+
+      doc.autoTable({
+        ...tableOptions,
+        head: [['PRO NAME', 'COLLECTION (TAKAFUL)', 'ADDITIONAL COLLECTION', 'TOTAL PERFORMANCE']],
+        body: proDetailRows,
+        startY: currentY,
+        columnStyles: {
+          0: { fontStyle: 'bold' },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 45 }
+        }
+      });
+      drawTableOuterBorder(doc.lastAutoTable, pageBeforeDetail, detailStartY, 190);
+      currentY = doc.lastAutoTable.finalY;
+
+      // =========================================================================
+      // PAGE 2: RANKINGS (No STATUS column)
       // =========================================================================
       const rankTitle = report.collectionFilterCode === 'all' ? 'CATEGORY RANKINGS' : 'RANKINGS';
-      renderSectionHeader(rankTitle);
-      
       const isAllFilter = report.collectionFilterCode === 'all';
       const detailedHeaders = isAllFilter
         ? [['RANK', 'CATEGORY', 'COLLECTION AMOUNT', 'CONTRIBUTION %']]
-        : [['RANK', 'PRO NAME', 'COLLECTION AMOUNT', 'CONTRIBUTION %', 'STATUS']];
+        : [['RANK', 'PRO NAME', 'COLLECTION AMOUNT', 'CONTRIBUTION %']];
 
       const sortedDetailedRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
       const detailedRows = sortedDetailedRows.map(r => {
-        if (isAllFilter) {
-          return [String(r.rank), r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`];
-        } else {
-          return [String(r.rank), r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`, (r.status || '').toUpperCase()];
-        }
+        return [String(r.rank), r.name, '₹' + r.amount.toLocaleString('en-IN'), `${r.pct}%`];
       });
+
+      renderSectionHeader(rankTitle, detailedRows.length);
+      const pageBeforeRankings = doc.internal.getCurrentPageInfo().pageNumber;
+      const rankingsStartY = currentY;
 
       doc.autoTable({
         ...tableOptions,
         head: detailedHeaders,
         body: detailedRows,
         startY: currentY,
-        columnStyles: isAllFilter ? {
+        columnStyles: {
           0: { halign: 'center', cellWidth: 20 },
           1: { fontStyle: 'bold' },
           2: { halign: 'right', fontStyle: 'bold', cellWidth: 50 },
           3: { halign: 'right', cellWidth: 35 }
-        } : {
-          0: { halign: 'center', cellWidth: 20 },
-          1: { fontStyle: 'bold' },
-          2: { halign: 'right', fontStyle: 'bold', cellWidth: 40 },
-          3: { halign: 'right', cellWidth: 30 },
-          4: { halign: 'center', cellWidth: 25 }
         }
       });
-      currentY = doc.lastAutoTable.finalY + 10;
+      drawTableOuterBorder(doc.lastAutoTable, pageBeforeRankings, rankingsStartY, 190);
+      currentY = doc.lastAutoTable.finalY;
 
       // =========================================================================
       // GRAND TOTAL FOOTER BLOCK
       // =========================================================================
-      ensureSpace(14);
-      doc.setDrawColor(13, 27, 42); // Dark Blue border
-      doc.setLineWidth(0.5);
-      doc.setFillColor(255, 255, 255); // White background
-      doc.rect(15, currentY, 180, 8, 'FD');
-      
-      doc.setTextColor(13, 27, 42); // Dark Blue text
+      // Check space for Grand Total
+      if (currentY + 18 > pageHeight - 25) {
+        doc.addPage();
+        currentY = 38;
+      } else {
+        currentY += 6; // Spacing between sections is 6mm
+      }
+
+      const totalText = `GRAND TOTAL : ₹${report.grandTotal.toLocaleString('en-IN')}`;
       doc.setFont('Roboto', 'bold');
-      doc.setFontSize(10);
-      doc.text(`GRAND TOTAL : ₹${report.grandTotal.toLocaleString('en-IN')}`, 105, currentY + 5.3, { align: 'center' });
+      doc.setFontSize(16);
+      const textWidth = doc.getTextWidth(totalText);
+      const boxWidth = textWidth + 20; // compact padding
+      const boxHeight = 12;
+      const boxX = 105 - (boxWidth / 2);
+
+      doc.setDrawColor(13, 27, 42); // Dark Blue border
+      doc.setLineWidth(0.6); // ~2px border
+      doc.setFillColor(255, 253, 230); // Light Yellow #FFFDE6
+      doc.rect(boxX, currentY, boxWidth, boxHeight, 'FD'); // Filled and stroked
+
+      doc.setTextColor(13, 27, 42); // Dark Blue text
+      doc.text(totalText, 105, currentY + 8.5, { align: 'center' }); // Centered text
 
       // =========================================================================
-      // POST-PROCESSING: Dynamic Page Numbers in Footer
+      // POST-PROCESSING: Dynamic Headers, Footers, and Page Numbers
       // =========================================================================
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
+        
+        // 1. Dark Blue Header Strip
+        doc.setFillColor(13, 27, 42); // Dark Blue
+        doc.rect(10, 10, 190, 18, 'F');
+        
+        // 2. Centered Gold Title
+        doc.setFont('Roboto', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(245, 197, 24); // Gold #F5C518
+        doc.text(report.title || 'TAKAFUL FINANCIAL YEAR REPORT', 105, 17, { align: 'center' });
+        
+        // 3. Centered Small Gray Subtitle
+        doc.setFont('Roboto', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(220, 220, 220); // Light Gray
+        doc.text(report.subtitle || 'FY 2026-27', 105, 23, { align: 'center' });
+        
+        // 4. Horizontal Divider Line
+        doc.setDrawColor(102, 102, 102); // Dark Gray #666
+        doc.setLineWidth(0.4);
+        doc.line(10, 32, 200, 32);
+        
+        // 5. Footer Details
         doc.setFont('Roboto', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(120, 120, 120);
-        doc.text(`Page ${i} of ${pageCount}`, 195, 285, { align: 'right' });
+        doc.setTextColor(80, 80, 80);
+        
+        // Left: Verified By
+        doc.text('Verified By ___________________', 10, 287);
+        
+        // Center: Generated On: Date & Time
+        const genTime = new Date(report.generatedAt || new Date()).toLocaleString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        doc.text(`Generated On: ${genTime}`, 105, 287, { align: 'center' });
+        
+        // Right: Page: X of N
+        doc.text(`Page: ${i} of ${pageCount}`, 200, 287, { align: 'right' });
       }
 
-      doc.save(`Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
+      const fileFilter = selectedModule ? selectedModule.name.replace(/\s+/g, '_') : 'All';
+      doc.save(`Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.s`);
     } catch (err) {
       console.error(err);
       alert('Failed to generate PDF');
@@ -1360,6 +1539,30 @@ const Reports = () => {
                   </div>
                 </div>
 
+                {/* Financial Summary (Expense & Balance) */}
+                <div className="border border-white/10 rounded-xl py-3.5 px-6 bg-white/[0.02] mt-6 flex flex-wrap justify-around items-center text-center gap-4">
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Collection</span>
+                    <span className="text-sm font-extrabold text-white mt-1 block">
+                      ₹{report.collectionSummary.total.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Expense</span>
+                    <span className="text-sm font-extrabold text-rose-400 mt-1 block">
+                      ₹{(report.totalExpense || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Net Balance</span>
+                    <span className="text-sm font-extrabold text-gold mt-1 block">
+                      ₹{(report.netBalance || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Section 5: Detailed Direct Collections Received Through PROs */}
                 {report.additionalPivotRows && report.additionalPivotRows.length > 0 && (
                   <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] mt-6">
@@ -1496,7 +1699,6 @@ const Reports = () => {
                         <th className="p-[7px_8px] border border-[#444] text-center">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
                         <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Collection Amount</th>
                         <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Contribution %</th>
-                        {report.collectionFilterCode !== 'all' && <th className="p-[7px_8px] border border-[#444] text-center">Status</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -1505,15 +1707,6 @@ const Reports = () => {
                           <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.name}</td>
                           <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{r.amount.toLocaleString('en-IN')}</td>
                           <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[100px] whitespace-nowrap">{r.pct}%</td>
-                          {report.collectionFilterCode !== 'all' && (
-                            <td className="p-[7px_8px] border border-[#444] text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                r.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                              }`}>
-                                {r.status.toUpperCase()}
-                              </span>
-                            </td>
-                          )}
                         </tr>
                       ))}
                     </tbody>

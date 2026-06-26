@@ -66,7 +66,11 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Attach mock financialYear object to each collection for frontend compatibility
+    const isAdmin = req.user?.role === 'admin';
     const formattedCollections = collections.map(c => {
+      if (!isAdmin) {
+        c.expense = 0;
+      }
       if (c.date) {
         const d = new Date(c.date);
         const m = d.getMonth();
@@ -93,7 +97,7 @@ router.get('/', protect, async (req, res) => {
 // POST /api/collections — single entry
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const { module, month, year, pro, amount, additionalCollections, additionalAmount, additionalHead, notes } = req.body;
+    const { module, month, year, pro, amount, additionalCollections, additionalAmount, additionalHead, notes, expense } = req.body;
     const [mod, proDoc] = await Promise.all([
       Module.findById(module),
       Pro.findById(pro)
@@ -133,6 +137,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
       amount: Number(amount) || 0,
       additionalCollections: collectionsList,
       notes,
+      expense: Number(expense) || 0,
       enteredBy: req.user._id
     });
     res.status(201).json({ success: true, data: collection });
@@ -144,7 +149,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PUT /api/collections/:id — update entry
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const { amount, additionalCollections, additionalAmount, additionalHead, notes, month, year } = req.body;
+    const { amount, additionalCollections, additionalAmount, additionalHead, notes, month, year, expense } = req.body;
     const collection = await Collection.findById(req.params.id);
     if (!collection) return res.status(404).json({ success: false, message: 'Collection not found' });
     
@@ -186,6 +191,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
     }
     
     if (notes !== undefined) collection.notes = notes;
+    if (expense !== undefined) collection.expense = Number(expense) || 0;
     
     await collection.save();
     res.json({ success: true, data: collection });
@@ -268,6 +274,7 @@ router.post('/bulk', protect, adminOnly, async (req, res) => {
           amount: Number(entry.amount) || 0,
           additionalCollections: collectionsList,
           notes: entry.notes || '',
+          expense: Number(entry.expense) || 0,
           enteredBy: req.user._id
         };
         

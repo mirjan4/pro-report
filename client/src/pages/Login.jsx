@@ -20,10 +20,8 @@ const Login = () => {
     }
     setError('');
     setLoading(true);
-
     const result = await login(username, password);
     setLoading(false);
-
     if (result.success) {
       navigate('/');
     } else {
@@ -31,67 +29,271 @@ const Login = () => {
     }
   };
 
+  /* ─── Inline styles ─── */
+  const s = {
+    page: {
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      padding: '24px',
+      overflow: 'hidden',
+      background: '#060d18',
+    },
+    orb1: {
+      position: 'absolute',
+      top: '15%',
+      left: '10%',
+      width: 480,
+      height: 480,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(30,80,180,0.18) 0%, transparent 70%)',
+      pointerEvents: 'none',
+      filter: 'blur(0px)',
+    },
+    orb2: {
+      position: 'absolute',
+      bottom: '10%',
+      right: '8%',
+      width: 420,
+      height: 420,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(212,175,55,0.09) 0%, transparent 70%)',
+      pointerEvents: 'none',
+    },
+    orb3: {
+      position: 'absolute',
+      top: '55%',
+      left: '55%',
+      width: 300,
+      height: 300,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(30,80,180,0.08) 0%, transparent 70%)',
+      pointerEvents: 'none',
+    },
+    card: {
+      position: 'relative',
+      zIndex: 10,
+      width: '100%',
+      maxWidth: 420,
+      background: 'rgba(255,255,255,0.028)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 24,
+      padding: '40px 36px',
+      backdropFilter: 'blur(20px)',
+      boxShadow: '0 40px 100px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)',
+    },
+    iconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      background: 'linear-gradient(135deg, #d4af37, #f0c040)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: '0 auto 18px',
+      boxShadow: '0 8px 28px rgba(212,175,55,0.35)',
+    },
+    heading: {
+      margin: 0,
+      fontSize: 22,
+      fontWeight: 800,
+      color: '#f1f5f9',
+      letterSpacing: '-0.02em',
+      textAlign: 'center',
+    },
+    subheading: {
+      margin: '6px 0 0',
+      fontSize: 13,
+      color: '#6b7280',
+      textAlign: 'center',
+    },
+    divider: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      margin: '28px 0',
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      background: 'rgba(255,255,255,0.07)',
+    },
+    dividerText: {
+      fontSize: 11,
+      color: '#4b5563',
+      fontWeight: 600,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+    },
+    label: {
+      display: 'block',
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: '#6b7280',
+      marginBottom: 7,
+    },
+    inputWrap: {
+      position: 'relative',
+    },
+    iconInInput: {
+      position: 'absolute',
+      left: 14,
+      top: '50%',
+      transform: 'translateY(-50%)',
+      color: '#4b5563',
+      pointerEvents: 'none',
+      display: 'flex',
+    },
+    input: {
+      width: '100%',
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.09)',
+      borderRadius: 12,
+      padding: '11px 14px 11px 42px',
+      fontSize: 13,
+      color: '#e2e8f0',
+      outline: 'none',
+      boxSizing: 'border-box',
+      transition: 'border-color 0.2s',
+    },
+    errorBox: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 9,
+      background: 'rgba(248,113,113,0.08)',
+      border: '1px solid rgba(248,113,113,0.2)',
+      borderRadius: 12,
+      padding: '11px 14px',
+      marginBottom: 22,
+      color: '#f87171',
+      fontSize: 13,
+    },
+    submitBtn: {
+      width: '100%',
+      padding: '13px',
+      borderRadius: 13,
+      border: 'none',
+      background: 'linear-gradient(135deg, #d4af37, #f0c040)',
+      color: '#0d1b2a',
+      fontSize: 14,
+      fontWeight: 800,
+      cursor: 'pointer',
+      letterSpacing: '0.01em',
+      boxShadow: '0 6px 24px rgba(212,175,55,0.3)',
+      transition: 'opacity 0.15s, transform 0.15s, box-shadow 0.15s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    spinner: {
+      width: 16,
+      height: 16,
+      borderRadius: '50%',
+      border: '2.5px solid rgba(13,27,42,0.3)',
+      borderTopColor: '#0d1b2a',
+      animation: 'spin 0.8s linear infinite',
+    },
+    footer: {
+      marginTop: 24,
+      textAlign: 'center',
+      fontSize: 11,
+      color: '#374151',
+      fontWeight: 500,
+    },
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center relative px-6 overflow-hidden">
-      {/* Decorative Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-premium-blue/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-gold/5 rounded-full blur-[120px] pointer-events-none" />
+    <div style={s.page}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input:-webkit-autofill {
+          -webkit-box-shadow: 0 0 0 100px #0d1b2a inset !important;
+          -webkit-text-fill-color: #e2e8f0 !important;
+        }
+      `}</style>
+
+      {/* Background orbs */}
+      <div style={s.orb1} />
+      <div style={s.orb2} />
+      <div style={s.orb3} />
+
+      {/* Subtle grid overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)',
+        backgroundSize: '48px 48px',
+        maskImage: 'radial-gradient(ellipse 70% 70% at 50% 50%, black 40%, transparent 100%)',
+      }} />
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-md glass-card rounded-3xl p-8 relative z-10 border border-white/10"
+        initial={{ opacity: 0, y: 28, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        style={s.card}
       >
-        {/* Glow Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-gradient-to-br from-gold to-gold-accent rounded-2xl shadow-xl shadow-gold/20 mb-4">
-            <Sparkles className="w-6 h-6 text-dark-bg" />
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={s.iconWrap}>
+            <Sparkles size={22} color="#0d1b2a" />
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Takaful Analytics</h2>
-          <p className="text-sm text-gray-400 mt-1.5">Sign in to your admin dashboard</p>
+          <h1 style={s.heading}>Takaful Analytics</h1>
+          <p style={s.subheading}>Sign in to your admin dashboard</p>
         </div>
 
+        {/* Divider */}
+        <div style={s.divider}>
+          <div style={s.dividerLine} />
+          <span style={s.dividerText}>credentials</span>
+          <div style={s.dividerLine} />
+        </div>
+
+        {/* Error */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center space-x-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm p-3 rounded-xl mb-6"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={s.errorBox}
           >
-            <AlertCircle className="w-5 h-5 shrink-0" />
+            <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>{error}</span>
           </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div>
-            <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-2">Username</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                <User className="w-5 h-5" />
-              </span>
+            <label style={s.label}>Username</label>
+            <div style={s.inputWrap}>
+              <span style={s.iconInInput}><User size={15} /></span>
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={e => setUsername(e.target.value)}
                 placeholder="Enter username"
-                className="w-full bg-slate-950/60 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold transition-all duration-200"
+                style={s.input}
+                onFocus={e => e.target.style.borderColor = 'rgba(212,175,55,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.09)'}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-2">Password</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
-                <Lock className="w-5 h-5" />
-              </span>
+            <label style={s.label}>Password</label>
+            <div style={s.inputWrap}>
+              <span style={s.iconInInput}><Lock size={15} /></span>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-950/60 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold transition-all duration-200"
+                style={s.input}
+                onFocus={e => e.target.style.borderColor = 'rgba(212,175,55,0.5)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.09)'}
               />
             </div>
           </div>
@@ -99,18 +301,27 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-gradient-to-r from-gold to-gold-accent hover:from-gold-accent hover:to-gold text-dark-bg font-bold rounded-xl shadow-lg shadow-gold/20 hover:shadow-gold/30 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 glow-btn"
+            style={{
+              ...s.submitBtn,
+              opacity: loading ? 0.8 : 1,
+              marginTop: 6,
+            }}
+            onMouseEnter={e => { if (!loading) { e.currentTarget.style.boxShadow = '0 8px 32px rgba(212,175,55,0.45)'; e.currentTarget.style.transform = 'scale(1.01)'; } }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 6px 24px rgba(212,175,55,0.3)'; e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.99)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1.01)'; }}
           >
             {loading ? (
-              <span className="flex items-center justify-center space-x-2">
-                <span className="animate-spin rounded-full h-4 w-4 border-2 border-dark-bg border-t-transparent" />
-                <span>Authenticating...</span>
-              </span>
-            ) : (
-              'Sign In'
-            )}
+              <>
+                <div style={s.spinner} />
+                Authenticating…
+              </>
+            ) : 'Sign in'}
           </button>
         </form>
+
+        {/* Footer note */}
+        <p style={s.footer}>Takaful Management System · Secured access</p>
       </motion.div>
     </div>
   );
