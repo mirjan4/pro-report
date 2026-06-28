@@ -387,7 +387,7 @@ const Reports = () => {
       sheet1Rows.push(Array.from({ length: maxCols }, () => ({}))); // Spacer
 
       // =========================================================================
-      // ROW 3: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
+      // ROW 3: OTHER COLLECTIONS THROUGH PROs (Full width pivot)
       // =========================================================================
       const displayColName = (col) => {
         if (col.toLowerCase() === 'markaz') return 'MKZ';
@@ -400,7 +400,7 @@ const Reports = () => {
       });
 
       const pivotTitleRow = Array.from({ length: maxCols }, () => ({}));
-      pivotTitleRow[0] = makeCell('DIRECT COLLECTIONS RECEIVED THROUGH PROs', 's', styles.sectionHeader);
+      pivotTitleRow[0] = makeCell('OTHER COLLECTIONS THROUGH PROs', 's', styles.sectionHeader);
       sheet1Rows.push(pivotTitleRow);
       sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 0 }, e: { r: sheet1Rows.length - 1, c: maxCols - 1 } });
 
@@ -1015,7 +1015,7 @@ const Reports = () => {
       // Left Table: Recruiters
       doc.autoTable({
         ...tableOptions,
-        head: [['PRO / OFFICE ', 'SPONSORS COUNT']],
+        head: [['PRO / OFFICE', 'SPONSORS COUNT']],
         body: paddedRecruiters,
         startY: currentY,
         margin: { left: 10 },
@@ -1108,7 +1108,7 @@ const Reports = () => {
       currentY = doc.lastAutoTable.finalY + 6; // Spacing below summary is 6mm
 
       // =========================================================================
-      // PAGE 2: DIRECT COLLECTIONS RECEIVED THROUGH PROs (Full width pivot)
+      // PAGE 2: OTHER COLLECTIONS THROUGH PROs (Full width pivot)
       // =========================================================================
       const displayColName = (col) => {
         if (col.toLowerCase() === 'markaz') return 'MKZ';
@@ -1152,7 +1152,7 @@ const Reports = () => {
 
       const pivotBody = pivotRows.length > 0 ? pivotRows : [['No direct collections', '₹0']];
       
-      renderSectionHeader('DIRECT COLLECTIONS RECEIVED THROUGH PROs', pivotBody.length);
+      renderSectionHeader('OTHER COLLECTIONS THROUGH PROs', pivotBody.length);
       const pageBeforePivot = doc.internal.getCurrentPageInfo().pageNumber;
       const pivotStartY = currentY;
 
@@ -1680,10 +1680,10 @@ const Reports = () => {
                       <div className="text-left">
                         <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                         <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                       </div>
                       <div className="text-right text-[8px] text-gray-500 font-medium">
-                        <span>Page 1 of {totalPages}</span>
+                       
                       </div>
                     </div>
                   </div>
@@ -1742,10 +1742,10 @@ const Reports = () => {
                       <div className="text-left">
                         <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                         <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                       </div>
                       <div className="text-right text-[8px] text-gray-500 font-medium">
-                        <span>Page 2 of {totalPages}</span>
+                        
                       </div>
                     </div>
                   </div>
@@ -1798,10 +1798,10 @@ const Reports = () => {
                       <div className="text-left">
                         <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                         <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                       </div>
                       <div className="text-right text-[8px] text-gray-500 font-medium">
-                        <span>Page 3 of {totalPages}</span>
+                       
                       </div>
                     </div>
                   </div>
@@ -1883,10 +1883,10 @@ const Reports = () => {
                       <div className="text-left">
                         <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                         <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                       </div>
                       <div className="text-right text-[8px] text-gray-500 font-medium">
-                        <span>Page 4 of {totalPages}</span>
+                       
                       </div>
                     </div>
                   </div>
@@ -1934,7 +1934,7 @@ const Reports = () => {
                               <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
                                 <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
                                   <tr className="border-b-2 border-[#222]">
-                                    <th className="p-[7px_8px] border border-[#444] text-center">Recruiter</th>
+                                    <th className="p-[7px_8px] border border-[#444] text-center">Pro/Office</th>
                                     <th className="p-[7px_8px] border border-[#444] text-center min-w-[60px] whitespace-nowrap">Count</th>
                                   </tr>
                                 </thead>
@@ -1948,7 +1948,7 @@ const Reports = () => {
                                     ))
                                   ) : (
                                     <tr className="border-b border-[#444]">
-                                      <td className="p-[7px_8px] border border-[#444] text-gray-500 italic">No recruiters</td>
+                                      <td className="p-[7px_8px] border border-[#444] text-gray-500 italic">No Sponsors Added</td>
                                       <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[60px] whitespace-nowrap">0</td>
                                     </tr>
                                   )}
@@ -2033,11 +2033,11 @@ const Reports = () => {
                         </div>
                       </div>
 
-                      {/* Section 5: Detailed Direct Collections Received Through PROs */}
+                      {/* Section 5: Detailed OTHER COLLECTIONS THROUGH PROs */}
                       {report.additionalPivotRows && report.additionalPivotRows.length > 0 && (
                         <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02] mt-6">
                           <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">
-                            DIRECT COLLECTIONS RECEIVED THROUGH PROs
+                            OTHER COLLECTIONS THROUGH PROs
                           </h4>
                           <div className="overflow-x-auto report-scroll-container">
                             <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
@@ -2089,10 +2089,10 @@ const Reports = () => {
                       <div className="text-left">
                         <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                         <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                        <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                        <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                       </div>
                       <div className="text-right text-[8px] text-gray-500 font-medium">
-                        <span>Page 1 of {totalPages}</span>
+                        
                       </div>
                     </div>
                   </div>
@@ -2148,10 +2148,10 @@ const Reports = () => {
                         <div className="text-left">
                           <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
                           <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                          <span className="text-[8px] text-gray-400 block mt-0.5">Finance Administrator</span>
+                          <span className="text-[8px] text-gray-400 block mt-0.5"></span>
                         </div>
                         <div className="text-right text-[8px] text-gray-500 font-medium">
-                          <span>Page 2 of {totalPages}</span>
+                          
                         </div>
                       </div>
                     </div>
@@ -2199,9 +2199,7 @@ const Reports = () => {
                           <div>Total Contributors: <strong className="text-white">{report.detailedReport.totalContributors}</strong></div>
                           <div className="mt-1">Total Collection: <strong className="text-gold">₹{report.detailedReport.totalCollection.toLocaleString('en-IN')}</strong></div>
                         </div>
-                        <div className="text-right text-[9px] text-gray-500 font-medium">
-                          <span>Page 3 of {totalPages}</span>
-                        </div>
+                        
                       </div>
                     </div>
 
