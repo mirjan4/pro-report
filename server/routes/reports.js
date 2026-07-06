@@ -18,6 +18,29 @@ function getProId(p) {
   return p._id ? p._id.toString() : p.toString();
 }
 
+const getMonthNumber = (monthName) => {
+  const map = {
+    'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
+    'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
+  };
+  return map[String(monthName).toLowerCase()] ?? 0;
+};
+
+const getProJoiningDate = (pro) => {
+  if (!pro.joiningMonth || !pro.joiningYear) {
+    return new Date(Date.UTC(2025, 3, 1)); // Default fallback if null (April 2025)
+  }
+  const monthIdx = getMonthNumber(pro.joiningMonth);
+  return new Date(Date.UTC(pro.joiningYear, monthIdx, 1));
+};
+
+const getRecordDate = (record) => {
+  if (record.date) return new Date(record.date);
+  const monthIdx = getMonthNumber(record.month);
+  const yr = Number(record.year) || 2025;
+  return new Date(Date.UTC(yr, monthIdx, 1));
+};
+
 function formatDatePretty(dateStr) {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
@@ -286,8 +309,12 @@ router.get('/generate', protect, async (req, res) => {
     const collectionFilterName = selectedModuleDoc ? selectedModuleDoc.name : 'All Collections';
     const collectionFilterCode = selectedModuleDoc ? selectedModuleDoc.code : 'all';
 
-    // Determine previous period filter for comparisons
+    // Determine previous period filter for comparisons and exact period boundaries
     let prevFilter = {};
+    let currentPeriodLabel = '';
+    let prevPeriodLabel = '';
+    let currentPeriodStart, currentPeriodEnd, prevPeriodStart, prevPeriodEnd;
+
     if (periodType === 'month') {
       const yr = Number(year) || new Date().getFullYear();
       const monthsList = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -301,10 +328,24 @@ router.get('/generate', protect, async (req, res) => {
         prevMonth = monthsList[currentIdx - 1];
       }
       prevFilter = { month: prevMonth, year: prevYear };
+      currentPeriodLabel = `${month} ${yr}`;
+      prevPeriodLabel = `${prevMonth} ${prevYear}`;
+
+      currentPeriodStart = new Date(Date.UTC(yr, getMonthNumber(month), 1, 0, 0, 0));
+      currentPeriodEnd = new Date(Date.UTC(yr, getMonthNumber(month) + 1, 0, 23, 59, 59, 999));
+      prevPeriodStart = new Date(Date.UTC(prevYear, getMonthNumber(prevMonth), 1, 0, 0, 0));
+      prevPeriodEnd = new Date(Date.UTC(prevYear, getMonthNumber(prevMonth) + 1, 0, 23, 59, 59, 999));
     } 
     else if (periodType === 'year') {
       const yr = Number(year) || new Date().getFullYear();
       prevFilter = { year: yr - 1 };
+      currentPeriodLabel = `${yr}`;
+      prevPeriodLabel = `${yr - 1}`;
+
+      currentPeriodStart = new Date(Date.UTC(yr, 0, 1, 0, 0, 0));
+      currentPeriodEnd = new Date(Date.UTC(yr, 11, 31, 23, 59, 59, 999));
+      prevPeriodStart = new Date(Date.UTC(yr - 1, 0, 1, 0, 0, 0));
+      prevPeriodEnd = new Date(Date.UTC(yr - 1, 11, 31, 23, 59, 59, 999));
     }
     else if (periodType === 'fy') {
       const startYear = parseInt(financialYear) || new Date().getFullYear();
@@ -313,6 +354,14 @@ router.get('/generate', protect, async (req, res) => {
       const prevStart = new Date(Date.UTC(prevStartYear, 3, 1, 0, 0, 0));
       const prevEnd = new Date(Date.UTC(prevEndYear, 2, 31, 23, 59, 59, 999));
       prevFilter = { date: { $gte: prevStart, $lte: prevEnd } };
+      const endYear = startYear + 1;
+      currentPeriodLabel = `FY ${startYear}-${String(endYear).substring(2)}`;
+      prevPeriodLabel = `FY ${prevStartYear}-${String(startYear).substring(2)}`;
+
+      currentPeriodStart = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0));
+      currentPeriodEnd = new Date(Date.UTC(startYear + 1, 2, 31, 23, 59, 59, 999));
+      prevPeriodStart = prevStart;
+      prevPeriodEnd = prevEnd;
     }
     else if (periodType === 'custom') {
       const start = new Date(fromDate || new Date());
@@ -321,6 +370,13 @@ router.get('/generate', protect, async (req, res) => {
       const prevStart = new Date(start.getTime() - durationMs - 1000);
       const prevEnd = new Date(start.getTime() - 1000);
       prevFilter = { date: { $gte: prevStart, $lte: prevEnd } };
+      currentPeriodLabel = 'Current Period';
+      prevPeriodLabel = 'Prev Period';
+
+      currentPeriodStart = start;
+      currentPeriodEnd = end;
+      prevPeriodStart = prevStart;
+      prevPeriodEnd = prevEnd;
     }
 
     // 1. Query collections
@@ -347,6 +403,63 @@ router.get('/generate', protect, async (req, res) => {
       filteredSponsors = sponsors.filter(s => s.pro && s.pro.module && getModuleId(s.pro.module) === selectedModuleId.toString());
       prevFilteredCollections = prevCollections.filter(c => c.module && getModuleId(c.module) === selectedModuleId.toString());
     }
+
+    // Filter PROs by eligibility for the current period
+    let eligiblePros = [];
+    let eligibleProIds = new Set();
+    
+    let allProsList = [];
+    if (selectedModuleId) {
+      allProsList = await Pro.find({ module: selectedModuleId }).lean();
+    } else {
+      allProsList = await Pro.find({}).lean();
+    }
+
+    for (const p of allProsList) {
+      const pid = p._id.toString();
+      const proJoiningDate = getProJoiningDate(p);
+      
+      // Rule 1, 2, 3: Must join on or before the current period end
+      if (proJoiningDate > currentPeriodEnd) {
+        continue; 
+      }
+      
+      // Rule 4, 5: Inactive PRO with zero collection
+      const proCols = filteredCollections.filter(c => getProId(c.pro) === pid && getRecordDate(c) >= proJoiningDate);
+      const totalColl = proCols.reduce((sum, c) => sum + (c.amount || 0) + (c.additionalAmount || 0), 0);
+      
+      if (p.status === 'inactive' && totalColl === 0) {
+        continue; 
+      }
+
+      eligiblePros.push(p);
+      eligibleProIds.add(pid);
+    }
+
+    // Filter current collections, sponsors, and prev collections to keep only those from eligible PROs from their joining month onward
+    filteredCollections = filteredCollections.filter(c => {
+      if (!c.pro) return true; 
+      const pid = getProId(c.pro);
+      if (!eligibleProIds.has(pid)) return false;
+      const pro = eligiblePros.find(p => p._id.toString() === pid);
+      return getRecordDate(c) >= getProJoiningDate(pro);
+    });
+
+    filteredSponsors = filteredSponsors.filter(s => {
+      if (!s.pro) return true;
+      const pid = getProId(s.pro);
+      if (!eligibleProIds.has(pid)) return false;
+      const pro = eligiblePros.find(p => p._id.toString() === pid);
+      return getRecordDate(s) >= getProJoiningDate(pro);
+    });
+
+    prevFilteredCollections = prevFilteredCollections.filter(c => {
+      if (!c.pro) return true;
+      const pid = getProId(c.pro);
+      if (!eligibleProIds.has(pid)) return false;
+      const pro = eligiblePros.find(p => p._id.toString() === pid);
+      return getRecordDate(c) >= getProJoiningDate(pro);
+    });
 
     // Page 1 Section 1: Sponsors Summary
     const premiumCount = filteredSponsors.reduce((sum, c) => sum + (c.premiumCount || 0), 0);
@@ -460,9 +573,10 @@ router.get('/generate', protect, async (req, res) => {
       return sumB - sumA;
     });
 
-    // Page 1 Section 3: Takaful Collection Summary (only amount field, excluding additionalAmount)
+    // Page 1 Section 3: Takaful Collection Summary (only amount field, PRO includes additionalAmount if filter is PRO)
+    const isProFilter = collectionFilterCode === 'pro';
     const globalTotal = filteredCollections.filter(c => c.module && (c.module.code === 'glb' || c.module.code === 'global')).reduce((sum, c) => sum + (c.amount || 0), 0);
-    const proTotal = filteredCollections.filter(c => c.module && c.module.code === 'pro').reduce((sum, c) => sum + (c.amount || 0), 0);
+    const proTotal = filteredCollections.filter(c => c.module && c.module.code === 'pro').reduce((sum, c) => sum + (c.amount || 0) + (isProFilter ? (c.additionalAmount || 0) : 0), 0);
     const officeTotal = filteredCollections.filter(c => c.module && (c.module.code === 'ofc' || c.module.code === 'office')).reduce((sum, c) => sum + (c.amount || 0), 0);
     const totalCollection = globalTotal + proTotal + officeTotal;
 
@@ -572,7 +686,9 @@ router.get('/generate', protect, async (req, res) => {
             additionalTotal: 0, 
             total: 0, 
             expenseTotal: 0,
-            status: c.pro.status || 'active' 
+            status: c.pro.status || 'active',
+            joiningMonth: c.pro.joiningMonth,
+            joiningYear: c.pro.joiningYear
           };
         }
         proMap[pid].takafulTotal += (c.amount || 0);
@@ -581,9 +697,8 @@ router.get('/generate', protect, async (req, res) => {
         proMap[pid].expenseTotal += (c.expense || 0);
       });
 
-      // Include PROs from current module with zero collections
-      const prosInModule = await Pro.find({ module: selectedModuleId });
-      prosInModule.forEach(p => {
+      // Include eligible PROs with zero collections
+      eligiblePros.forEach(p => {
         const pid = p._id.toString();
         if (!proMap[pid]) {
           proMap[pid] = { 
@@ -595,7 +710,9 @@ router.get('/generate', protect, async (req, res) => {
             additionalTotal: 0, 
             total: 0, 
             expenseTotal: 0,
-            status: p.status 
+            status: p.status,
+            joiningMonth: p.joiningMonth,
+            joiningYear: p.joiningYear
           };
         }
       });
@@ -607,21 +724,23 @@ router.get('/generate', protect, async (req, res) => {
           if (!c.pro) return;
           const pid = getProId(c.pro);
           if (!prevProAmtMap[pid]) prevProAmtMap[pid] = 0;
-          prevProAmtMap[pid] += (c.amount || 0); // sum Takaful amount (amount)
+          prevProAmtMap[pid] += (c.amount || 0) + (c.additionalAmount || 0); // sum Takaful amount + additional collection
         });
       }
 
       // Calculate totals
-      const proTakafulTotal = Object.values(proMap).reduce((s, p) => s + p.takafulTotal, 0);
+      const proTakafulTotal = Object.values(proMap).reduce((s, p) => s + p.takafulTotal + p.additionalTotal, 0);
       const proPerfTotal = Object.values(proMap).reduce((s, p) => s + p.total, 0);
 
       detailedReportRows = Object.values(proMap)
-        .sort((a, b) => b.takafulTotal - a.takafulTotal) // Sort by current Takaful collection descending
+        .sort((a, b) => (b.takafulTotal + b.additionalTotal) - (a.takafulTotal + a.additionalTotal)) // Sort by Takaful + Additional collection descending
         .map((p, idx) => {
-          const prevAmt = prevProAmtMap[p.proId] || 0;
-          const currentAmt = p.takafulTotal;
-          const change = currentAmt - prevAmt;
-          const growthPct = prevAmt > 0 ? parseFloat(((change / prevAmt) * 100).toFixed(1)) : (currentAmt > 0 ? 100 : 0);
+          const proJoiningDate = getProJoiningDate(p);
+          const isEligiblePrev = proJoiningDate <= prevPeriodEnd;
+          const prevAmt = isEligiblePrev ? (prevProAmtMap[p.proId] || 0) : null;
+          const currentAmt = p.takafulTotal + p.additionalTotal;
+          const change = prevAmt === null ? null : (currentAmt - prevAmt);
+          const growthPct = prevAmt === null ? null : (prevAmt > 0 ? parseFloat(((change / prevAmt) * 100).toFixed(1)) : (currentAmt > 0 ? 100 : 0));
           const expenseAmount = p.expenseTotal;
           const netBalance = currentAmt - expenseAmount;
           const expenseRatio = currentAmt > 0 ? parseFloat(((expenseAmount / currentAmt) * 100).toFixed(1)) : 0;
@@ -652,6 +771,7 @@ router.get('/generate', protect, async (req, res) => {
     filteredCollections.forEach(c => {
       if (!c.pro) return;
       const pid = getProId(c.pro);
+      if (!eligibleProIds.has(pid)) return;
       if (!allProMap[pid]) {
         allProMap[pid] = {
           name: c.proName || c.pro.name,
@@ -667,14 +787,7 @@ router.get('/generate', protect, async (req, res) => {
       allProMap[pid].total += (c.totalAmount || 0);
     });
 
-    let prosToInclude = [];
-    if (selectedModuleId) {
-      prosToInclude = await Pro.find({ module: selectedModuleId }).lean();
-    } else {
-      prosToInclude = await Pro.find({}).lean();
-    }
-
-    prosToInclude.forEach(p => {
+    eligiblePros.forEach(p => {
       const pid = p._id.toString();
       if (!allProMap[pid]) {
         allProMap[pid] = {
@@ -710,6 +823,8 @@ router.get('/generate', protect, async (req, res) => {
         title: periodTitle,
         subtitle: periodLabel,
         periodType,
+        currentPeriodLabel,
+        prevPeriodLabel,
         collectionFilter: collectionFilterName,
         collectionFilterCode,
         generatedAt: new Date().toISOString(),

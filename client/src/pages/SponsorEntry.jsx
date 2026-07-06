@@ -242,32 +242,57 @@ const SponsorEntry = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        if (rows.length === 0) {
+        const sheetRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        if (sheetRows.length === 0) {
           setBulkError('The uploaded file contains no data rows.');
           return;
         }
 
+        const headers = (sheetRows[0] || []).map(h => String(h || '').trim());
         const requiredHeaders = ['Month', 'Year', 'PRO Name', 'Premium', 'Smart', 'Standard'];
-        const firstRow = rows[0];
-        const missing = requiredHeaders.filter(h => !(h in firstRow));
+        const missing = requiredHeaders.filter(h => !headers.includes(h));
         if (missing.length > 0) {
           setBulkError(`Missing required columns: ${missing.join(', ')}`);
           return;
         }
 
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
         const validated = rows.map((row, index) => {
           const errors = [];
           const rawPro = row['PRO Name']?.toString().trim();
-          const rawMonth = row['Month']?.toString().trim();
+          
+          // Map short month names and case-insensitive inputs to standard full month names
+          const MONTH_MAP = {
+            jan: 'January', january: 'January',
+            feb: 'February', february: 'February',
+            mar: 'March', march: 'March',
+            apr: 'April', april: 'April',
+            may: 'May',
+            jun: 'June', june: 'June',
+            jul: 'July', july: 'July',
+            aug: 'August', august: 'August',
+            sep: 'September', september: 'September',
+            oct: 'October', october: 'October',
+            nov: 'November', november: 'November',
+            dec: 'December', december: 'December'
+          };
+          const rawMonthRaw = row['Month']?.toString().trim() || '';
+          const cleanMonth = rawMonthRaw.toLowerCase();
+          const rawMonth = MONTH_MAP[cleanMonth] || rawMonthRaw;
+
           const rawYear = Number(row['Year']);
-          const rawPremium = Number(row['Premium']);
-          const rawSmart = Number(row['Smart']);
-          const rawStandard = Number(row['Standard']);
+          
+          const parseCount = (val) => {
+            if (val === undefined || val === null || String(val).trim() === '') return 0;
+            return Number(val);
+          };
+          const rawPremium = parseCount(row['Premium']);
+          const rawSmart = parseCount(row['Smart']);
+          const rawStandard = parseCount(row['Standard']);
 
           if (!rawPro) errors.push('PRO Name is required');
-          if (!rawMonth || !MONTHS.includes(rawMonth)) errors.push(`Invalid Month name: "${rawMonth}"`);
+          if (!rawMonthRaw || !MONTHS.includes(rawMonth)) errors.push(`Invalid Month name: "${rawMonthRaw}"`);
           if (isNaN(rawYear) || rawYear < 2000 || rawYear > 2100) errors.push('Invalid Year number');
           if (isNaN(rawPremium) || rawPremium < 0) errors.push('Premium must be positive number');
           if (isNaN(rawSmart) || rawSmart < 0) errors.push('Smart must be positive number');

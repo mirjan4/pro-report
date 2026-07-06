@@ -398,18 +398,33 @@ const CollectionEntry = () => {
         const data = new Uint8Array(event.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(worksheet);
-        if (rows.length === 0) { setBulkError('The uploaded file contains no data rows.'); return; }
+        const sheetRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        if (sheetRows.length === 0) { setBulkError('The uploaded file contains no data rows.'); return; }
+        const headers = (sheetRows[0] || []).map(h => String(h || '').trim());
         const requiredFields = ['Month', 'Year', 'PRO Name', 'Amount'];
-        const keys = Object.keys(rows[0]);
-        const missing = requiredFields.filter(f => !keys.includes(f));
+        const missing = requiredFields.filter(f => !headers.includes(f));
         if (missing.length > 0) { setBulkError(`Missing required columns: ${missing.join(', ')}`); return; }
+        const rows = XLSX.utils.sheet_to_json(worksheet);
         const validated = rows.map((row, idx) => {
           const errors = [];
+          const MONTH_MAP = {
+            jan: 'January', january: 'January',
+            feb: 'February', february: 'February',
+            mar: 'March', march: 'March',
+            apr: 'April', april: 'April',
+            may: 'May',
+            jun: 'June', june: 'June',
+            jul: 'July', july: 'July',
+            aug: 'August', august: 'August',
+            sep: 'September', september: 'September',
+            oct: 'October', october: 'October',
+            nov: 'November', november: 'November',
+            dec: 'December', december: 'December'
+          };
           let rawMonth = row['Month']?.toString().trim() || '';
-          let parsedMonth = rawMonth;
-          if (rawMonth) parsedMonth = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1).toLowerCase();
-          if (!MONTHS.includes(parsedMonth)) errors.push(`Invalid month: "${rawMonth}"`);
+          let cleanMonth = rawMonth.toLowerCase();
+          let parsedMonth = MONTH_MAP[cleanMonth] || rawMonth;
+          if (!rawMonth || !MONTHS.includes(parsedMonth)) errors.push(`Invalid month: "${rawMonth}"`);
           const rawYear = row['Year']?.toString().trim();
           const parsedYear = Number(rawYear);
           if (isNaN(parsedYear) || parsedYear < 2000 || parsedYear > 2100) errors.push(`Invalid year: "${rawYear}"`);

@@ -734,11 +734,10 @@ const Reports = () => {
         // =========================================================================
         renderSectionHeader('PRO COLLECTION DETAILS', 1);
         const p1StartY = currentY;
-        const p1Headers = [['RANK', 'PRO NAME', 'DESIGNATION', 'COLLECTION AMOUNT', 'CONTRIBUTION %']];
+        const p1Headers = [['Sl No', 'PRO NAME', 'COLLECTION AMOUNT', 'CONTRIBUTION %']];
         const p1Rows = report.detailedReport.rows.map(r => [
           String(r.rank),
           r.name,
-          r.designation,
           '₹' + r.takafulAmount.toLocaleString('en-IN'),
           r.pct + '%'
         ]);
@@ -751,9 +750,8 @@ const Reports = () => {
           columnStyles: {
             0: { halign: 'center', cellWidth: 15 },
             1: { fontStyle: 'bold' },
-            2: { fontStyle: 'normal' },
-            3: { halign: 'right', fontStyle: 'bold', cellWidth: 40 },
-            4: { halign: 'right', fontStyle: 'bold', cellWidth: 35 }
+            2: { halign: 'right', fontStyle: 'bold', cellWidth: 45 },
+            3: { halign: 'right', fontStyle: 'bold', cellWidth: 38 }
           }
         });
         drawTableOuterBorder(doc.lastAutoTable, 1, p1StartY, 190);
@@ -765,15 +763,27 @@ const Reports = () => {
         currentY = 38;
         renderSectionHeader('PRO COLLECTION COMPARISON WITH PREVIOUS PERIOD', 1);
         const p2StartY = currentY;
-        const p2Headers = [['RANK', 'PRO NAME', 'PREV COLLECTION', 'CURRENT COLLECTION', 'DIFFERENCE', 'GROWTH %']];
-        const p2Rows = report.detailedReport.rows.map(r => [
-          String(r.rank),
-          r.name + '\n(' + r.designation + ')',
-          '₹' + r.prevAmount.toLocaleString('en-IN'),
-          '₹' + r.takafulAmount.toLocaleString('en-IN'),
-          (r.change >= 0 ? '+' : '') + '₹' + r.change.toLocaleString('en-IN'),
-          (r.change >= 0 ? '▲ ' : '▼ ') + r.growthPct + '%'
-        ]);
+        const p2Headers = [[
+          'Sl No', 
+          'PRO NAME', 
+          report.prevPeriodLabel ? report.prevPeriodLabel.toUpperCase() : 'PREV COLLECTION', 
+          report.currentPeriodLabel ? report.currentPeriodLabel.toUpperCase() : 'CURRENT COLLECTION', 
+          'DIFFERENCE', 
+          'GROWTH %'
+        ]];
+        const p2Rows = report.detailedReport.rows.map(r => {
+          const prevStr = r.prevAmount === null ? 'N/A' : '₹' + r.prevAmount.toLocaleString('en-IN');
+          const changeStr = r.change === null ? (r.takafulAmount > 0 ? 'New' : 'N/A') : ((r.change >= 0 ? '+' : '') + '₹' + r.change.toLocaleString('en-IN'));
+          const growthStr = r.growthPct === null ? (r.takafulAmount > 0 ? 'New' : 'N/A') : ((r.change >= 0 ? '▲ ' : '▼ ') + r.growthPct + '%');
+          return [
+            String(r.rank),
+            r.name,
+            prevStr,
+            '₹' + r.takafulAmount.toLocaleString('en-IN'),
+            changeStr,
+            growthStr
+          ];
+        });
 
         doc.autoTable({
           ...tableOptions,
@@ -808,13 +818,12 @@ const Reports = () => {
         // =========================================================================
         doc.addPage();
         currentY = 38;
-        renderSectionHeader('PRO COLLECTION DETAILS WITH EXPENSE', 1);
+        renderSectionHeader('PRO COLLECTION DETAILS', 1);
         const p3StartY = currentY;
-        const p3Headers = [['RANK', 'PRO NAME', 'DESIGNATION', 'TOTAL COLLECTION', 'EXPENSE', 'NET BALANCE']];
+        const p3Headers = [['Sl No', 'PRO NAME', 'TOTAL COLLECTION', 'EXPENSE', 'NET BALANCE']];
         const p3Rows = report.detailedReport.rows.map(r => [
           String(r.rank),
           r.name,
-          r.designation,
           '₹' + r.takafulAmount.toLocaleString('en-IN'),
           '₹' + r.expenseAmount.toLocaleString('en-IN'),
           '₹' + r.netBalance.toLocaleString('en-IN')
@@ -828,10 +837,9 @@ const Reports = () => {
           columnStyles: {
             0: { halign: 'center', cellWidth: 15 },
             1: { fontStyle: 'bold' },
-            2: { fontStyle: 'normal' },
-            3: { halign: 'right', fontStyle: 'bold', cellWidth: 35 },
-            4: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68], cellWidth: 35 },
-            5: { halign: 'right', fontStyle: 'bold', textColor: [212, 175, 55], cellWidth: 35 }
+            2: { halign: 'right', fontStyle: 'bold', cellWidth: 42 },
+            3: { halign: 'right', fontStyle: 'bold', textColor: [239, 68, 68], cellWidth: 42 },
+            4: { halign: 'right', fontStyle: 'bold', textColor: [212, 175, 55], cellWidth: 42 }
           }
         });
         drawTableOuterBorder(doc.lastAutoTable, 3, p3StartY, 190);
@@ -843,10 +851,10 @@ const Reports = () => {
         currentY = 38;
         renderSectionHeader('INCOME VS EXPENSE COMPARISON', 1);
         const p4StartY = currentY;
-        const p4Headers = [['RANK', 'PRO NAME', 'INCOME (TAKAFUL)', 'EXPENSE', 'NET BALANCE', 'EXPENSE RATIO']];
+        const p4Headers = [['Sl No', 'PRO NAME', 'INCOME (TOTAL)', 'EXPENSE', 'NET BALANCE', 'EXPENSE RATIO']];
         const p4Rows = report.detailedReport.rows.map(r => [
           String(r.rank),
-          r.name + '\n(' + r.designation + ')',
+          r.name,
           '₹' + r.takafulAmount.toLocaleString('en-IN'),
           '₹' + r.expenseAmount.toLocaleString('en-IN'),
           '₹' + r.netBalance.toLocaleString('en-IN'),
@@ -1655,7 +1663,6 @@ const Reports = () => {
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
-                              <th className="p-[7px_8px] border border-[#444] text-left">Designation</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Collection Amount</th>
                               <th className="p-[7px_8px] border border-[#444] text-right w-28">Contribution %</th>
                             </tr>
@@ -1665,7 +1672,6 @@ const Reports = () => {
                               <tr key={row.rank} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
                                 <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-white font-semibold">{row.name}</td>
-                                <td className="p-[7px_8px] border border-[#444] text-gray-300">{row.designation}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-gold font-bold">{row.pct}%</td>
                               </tr>
@@ -1708,8 +1714,8 @@ const Reports = () => {
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
-                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Prev Collection</th>
-                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Current Collection</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">{report.prevPeriodLabel || 'Prev Collection'}</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">{report.currentPeriodLabel || 'Current Collection'}</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[90px]">Difference</th>
                               <th className="p-[7px_8px] border border-[#444] text-right w-24">Growth %</th>
                             </tr>
@@ -1720,15 +1726,16 @@ const Reports = () => {
                                 <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
                                   {row.name}
-                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
                                 </td>
-                                <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 font-semibold">₹{row.prevAmount.toLocaleString('en-IN')}</td>
+                                <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 font-semibold">
+                                  {row.prevAmount === null ? 'N/A' : '₹' + row.prevAmount.toLocaleString('en-IN')}
+                                </td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
-                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {row.change >= 0 ? '+' : ''}₹{row.change.toLocaleString('en-IN')}
+                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.change === null ? 'text-emerald-400' : (row.change >= 0 ? 'text-emerald-400' : 'text-rose-400')}`}>
+                                  {row.change === null ? (row.takafulAmount > 0 ? 'New' : 'N/A') : ((row.change >= 0 ? '+' : '') + '₹' + row.change.toLocaleString('en-IN'))}
                                 </td>
-                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {row.change >= 0 ? '▲' : '▼'} {row.growthPct}%
+                                <td className={`p-[7px_8px] border border-[#444] text-right font-bold ${row.growthPct === null ? 'text-emerald-400' : (row.change >= 0 ? 'text-emerald-400' : 'text-rose-400')}`}>
+                                  {row.growthPct === null ? (row.takafulAmount > 0 ? 'New' : 'N/A') : ((row.change >= 0 ? '▲' : '▼') + ' ' + row.growthPct + '%')}
                                 </td>
                               </tr>
                             ))}
@@ -1770,7 +1777,7 @@ const Reports = () => {
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
-                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Takaful Collection</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Total Collection</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Expense</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[120px]">Net Balance</th>
                             </tr>
@@ -1781,7 +1788,6 @@ const Reports = () => {
                                 <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
                                   {row.name}
-                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
                                 </td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-rose-400 font-bold">₹{row.expenseAmount.toLocaleString('en-IN')}</td>
@@ -1826,7 +1832,7 @@ const Reports = () => {
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
-                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Income (Takaful)</th>
+                              <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Income (Total)</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Expense</th>
                               <th className="p-[7px_8px] border border-[#444] text-right min-w-[100px]">Net Balance</th>
                               <th className="p-[7px_8px] border border-[#444] text-right w-24">Expense Ratio</th>
@@ -1838,7 +1844,6 @@ const Reports = () => {
                                 <td className="p-[7px_8px] border border-[#444] text-center text-gray-400">{row.rank}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-white font-semibold">
                                   {row.name}
-                                  <span className="text-[10px] text-gray-400 font-normal block">{row.designation}</span>
                                 </td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold">₹{row.takafulAmount.toLocaleString('en-IN')}</td>
                                 <td className="p-[7px_8px] border border-[#444] text-right text-rose-400 font-bold">₹{row.expenseAmount.toLocaleString('en-IN')}</td>
