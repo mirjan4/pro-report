@@ -1342,7 +1342,7 @@ const Reports = () => {
       }
 
       const fileFilter = selectedModule ? selectedModule.name.replace(/\s+/g, '_') : 'All';
-      doc.save(`Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.s`);
+      doc.save(`Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.pdf`);
     } catch (err) {
       console.error(err);
       alert('Failed to generate PDF');
