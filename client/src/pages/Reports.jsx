@@ -320,8 +320,9 @@ const Reports = () => {
       // =========================================================================
       // ROW 2: RECRUITERS & PROJECT DISTRIBUTIONS (side-by-side)
       // =========================================================================
-      const recruitersRows = report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 
-        ? report.sponsorsByRecruiter.map(s => [s.name, s.count])
+      const validRecruiters = (report.sponsorsByRecruiter || []).filter(s => s.count > 0);
+      const recruitersRows = validRecruiters.length > 0 
+        ? validRecruiters.map(s => [s.name, s.count])
         : [['No sponsors added', 0]];
       
       const distRemaining = report.collectionDistribution?.remainingTakafulBalance || 0;
@@ -979,8 +980,9 @@ const Reports = () => {
       // =========================================================================
       // PAGE 1 - ROW 2: RECRUITERS & PROJECT DISTRIBUTIONS (2-column layout)
       // =========================================================================
-      const recruitersRows = report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 
-        ? report.sponsorsByRecruiter.map(s => [s.name, String(s.count)])
+      const validRecruiters = (report.sponsorsByRecruiter || []).filter(s => s.count > 0);
+      const recruitersRows = validRecruiters.length > 0 
+        ? validRecruiters.map(s => [s.name, String(s.count)])
         : [['No sponsors added', '0']];
       
       const distRemaining = report.collectionDistribution?.remainingTakafulBalance || 0;
@@ -1358,10 +1360,16 @@ const Reports = () => {
     <div className="p-6 space-y-6">
       {/* Print Page Styles Override */}
       <style dangerouslySetInnerHTML={{ __html: `
+        @page {
+          size: A4 portrait;
+          margin: 19.1mm 6.4mm;
+        }
         @media print {
           body {
             background: white !important;
             color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           aside, header, nav, .no-print, button, select, input, label, .debug-panel {
             display: none !important;
@@ -1372,16 +1380,16 @@ const Reports = () => {
             background: white !important;
           }
           .print-container {
-            width: 210mm !important;
-            min-height: 297mm !important;
+            width: 197.2mm !important;
+            min-height: 258.8mm !important;
             page-break-after: always !important;
             page-break-inside: avoid !important;
             border: none !important;
             box-shadow: none !important;
             background: white !important;
             color: black !important;
-            padding: 15mm !important;
-            margin: 0 auto 20mm auto !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
             box-sizing: border-box !important;
           }
           .page-break {
@@ -1658,8 +1666,8 @@ const Reports = () => {
 
                       {/* Content Table */}
                       <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                        <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
@@ -1709,8 +1717,8 @@ const Reports = () => {
 
                       {/* Content Table */}
                       <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                        <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
@@ -1772,8 +1780,8 @@ const Reports = () => {
 
                       {/* Content Table */}
                       <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                        <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
@@ -1827,8 +1835,8 @@ const Reports = () => {
 
                       {/* Content Table */}
                       <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                        <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                        <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                          <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                             <tr className="border-b-2 border-[#222]">
                               <th className="p-[7px_8px] border border-[#444] text-center w-12">Rank</th>
                               <th className="p-[7px_8px] border border-[#444] text-left">PRO Name</th>
@@ -1920,7 +1928,7 @@ const Reports = () => {
                           {/* Section 1: New Sponsors Added */}
                           <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
                             <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">NEW SPONSORS ADDED</h4>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="grid grid-cols-2 gap-2 text-[13.5px]">
                               <div className="text-gray-400">Premium :</div>
                               <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">{report.sponsorsSummary.premium}</div>
                               <div className="text-gray-400">Smart :</div>
@@ -1936,16 +1944,16 @@ const Reports = () => {
                           <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
                             <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">SPONSORS ADDED </h4>
                             <div className="overflow-x-auto report-scroll-container">
-                              <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                                <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                              <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                                <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                                   <tr className="border-b-2 border-[#222]">
                                     <th className="p-[7px_8px] border border-[#444] text-center">Pro/Office</th>
                                     <th className="p-[7px_8px] border border-[#444] text-center min-w-[60px] whitespace-nowrap">Count</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {report.sponsorsByRecruiter && report.sponsorsByRecruiter.length > 0 ? (
-                                    report.sponsorsByRecruiter.slice(0, 5).map((s, idx) => (
+                                  {report.sponsorsByRecruiter && report.sponsorsByRecruiter.filter(s => s.count > 0).length > 0 ? (
+                                    report.sponsorsByRecruiter.filter(s => s.count > 0).map((s, idx) => (
                                       <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
                                         <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{s.name}</td>
                                         <td className="p-[7px_8px] border border-[#444] text-right text-white font-bold min-w-[60px] whitespace-nowrap">{s.count}</td>
@@ -1968,7 +1976,7 @@ const Reports = () => {
                           {/* Section 3: Collection Summary */}
                           <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
                             <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">COLLECTION SUMMARY</h4>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="grid grid-cols-2 gap-2 text-[13.5px]">
                               <div className="text-gray-400">Global Collection :</div>
                               <div className="font-semibold text-right text-white min-w-[100px] whitespace-nowrap">₹{report.collectionSummary.global.toLocaleString('en-IN')}</div>
                               <div className="text-gray-400">PRO Collection :</div>
@@ -1992,8 +2000,8 @@ const Reports = () => {
                               ];
 
                               return (
-                                <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                                  <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                                <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                                  <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                                     <tr className="border-b-2 border-[#222]">
                                       <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
                                       <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
@@ -2017,22 +2025,22 @@ const Reports = () => {
                       {/* Financial Summary (Expense & Balance) */}
                       <div className="border border-white/10 rounded-xl py-3.5 px-6 bg-white/[0.02] mt-6 flex flex-wrap justify-around items-center text-center gap-4">
                         <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Collection</span>
-                          <span className="text-sm font-extrabold text-white mt-1 block">
+                          <span className="text-[11.5px] text-gray-400 font-bold uppercase block tracking-wider">Total Collection</span>
+                          <span className="text-[15.5px] font-extrabold text-white mt-1 block">
                             ₹{report.collectionSummary.total.toLocaleString('en-IN')}
                           </span>
                         </div>
                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
                         <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Total Expense</span>
-                          <span className="text-sm font-extrabold text-rose-400 mt-1 block">
+                          <span className="text-[11.5px] text-gray-400 font-bold uppercase block tracking-wider">Total Expense</span>
+                          <span className="text-[15.5px] font-extrabold text-rose-400 mt-1 block">
                             ₹{(report.totalExpense || 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                         <div className="h-8 w-[1px] bg-white/10 hidden sm:block" />
                         <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase block tracking-wider">Net Balance</span>
-                          <span className="text-sm font-extrabold text-gold mt-1 block">
+                          <span className="text-[11.5px] text-gray-400 font-bold uppercase block tracking-wider">Net Balance</span>
+                          <span className="text-[15.5px] font-extrabold text-gold mt-1 block">
                             ₹{(report.netBalance || 0).toLocaleString('en-IN')}
                           </span>
                         </div>
@@ -2045,8 +2053,8 @@ const Reports = () => {
                             OTHER COLLECTIONS THROUGH PROs
                           </h4>
                           <div className="overflow-x-auto report-scroll-container">
-                            <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                              <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
+                            <table className="w-full text-[12.5px] border-collapse border border-[#444] text-left">
+                              <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[12.5px] font-bold">
                                 <tr className="border-b-2 border-[#222]">
                                   <th className="p-[7px_8px] border border-[#444] text-center">PRO Name</th>
                                   {report.additionalColumns.map(col => (
@@ -2083,7 +2091,7 @@ const Reports = () => {
                         <span className="text-[14px] sm:text-[16px] font-bold text-gold uppercase tracking-wider">
                           GRAND TOTAL :
                         </span>
-                        <span className="text-[16px] sm:text-[20px] font-bold text-white tracking-wide">
+                        <span className="text-[16px] sm:text-[20px] font-bold text-gold tracking-wide">
                           ₹{report.grandTotal.toLocaleString('en-IN')}
                         </span>
                       </div>
@@ -2101,112 +2109,6 @@ const Reports = () => {
                       </div>
                     </div>
                   </div>
-
-                  {/* PAGE 2: Collection Distribution Report */}
-                  <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
-                    <div>
-                      {/* Header Section */}
-                      <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
-                        <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
-                        <div className="text-center flex-1">
-                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">TAKAFUL DISTRIBUTION</h2>
-                          <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                        </div>
-                        <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
-                      </div>
-
-                      {/* Distribution Summary Table */}
-                      <div className="border border-white/10 rounded-xl py-[12px] px-[14px] bg-white/[0.02]">
-                        <h4 className="text-[14px] font-bold uppercase text-gold mb-[8px] print:text-[#0a0f1d]">DISTRIBUTIONS</h4>
-                        {(() => {
-                          const remaining = report.collectionDistribution?.remainingTakafulBalance || 0;
-                          const otherDists = (report.collectionDistribution?.distributions || []).filter(item => item.amount > 0);
-                          const distList = [
-                            { head: 'Takaful', amount: remaining },
-                            ...otherDists
-                          ];
-
-                          return (
-                            <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                              <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                                <tr className="border-b-2 border-[#222]">
-                                  <th className="p-[7px_8px] border border-[#444] text-center">Head</th>
-                                  <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Amount</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {distList.map((item, idx) => (
-                                  <tr key={idx} className="border-b border-[#444] hover:bg-white/[0.02] align-middle">
-                                    <td className="p-[7px_8px] border border-[#444] text-gray-300 font-medium">{item.head}</td>
-                                    <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{item.amount.toLocaleString('en-IN')}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          );
-                        })()}
-                        </div>
-                      </div>
-
-                      {/* Page Footer */}
-                      <div className="border-t border-white/5 pt-5 mt-6 flex justify-between items-end gap-4">
-                        <div className="text-left">
-                          <span className="text-[8px] text-gray-500 font-semibold uppercase block">Verified by</span>
-                          <span className="text-xs font-bold text-white block mt-1.5">_________________________</span>
-                          <span className="text-[8px] text-gray-400 block mt-0.5"></span>
-                        </div>
-                        <div className="text-right text-[8px] text-gray-500 font-medium">
-                          
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* PAGE 3: Detailed Collection Report */}
-                    <div className="print-container w-full max-w-[800px] bg-gradient-to-b from-[#0a1128] to-[#040814] border border-white/10 shadow-2xl p-8 sm:p-12 rounded-2xl text-white space-y-6 flex flex-col justify-between page-break">
-                      <div>
-                        {/* Header Section */}
-                        <div className="border-b border-white/10 pb-4 mb-6 flex items-center justify-between gap-4">
-                          <img src={markazLogo} alt="Markaz Logo" className="w-12 h-12 object-contain shrink-0" />
-                          <div className="text-center flex-1">
-                            <h2 className="text-lg sm:text-xl font-extrabold tracking-wider text-gold uppercase">
-                              {report.detailedReport.title}
-                            </h2>
-                            <h3 className="text-xs font-bold text-gray-300 mt-1 uppercase">{report.subtitle}</h3>
-                          </div>
-                          <img src={logo2} alt="Logo 2" className="w-12 h-12 object-contain shrink-0" />
-                        </div>
-
-                        <div className="overflow-x-auto mt-6 report-scroll-container">
-                          <table className="w-full text-[11px] border-collapse border border-[#444] text-left">
-                            <thead className="bg-[#e5e7eb] text-[#0a151e] uppercase text-[11px] font-bold">
-                              <tr className="border-b-2 border-[#222]">
-                                <th className="p-[7px_8px] border border-[#444] text-center">{report.collectionFilterCode === 'all' ? 'Category' : 'PRO Name'}</th>
-                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Collection Amount</th>
-                                <th className="p-[7px_8px] border border-[#444] text-center min-w-[100px] whitespace-nowrap">Contribution %</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {[...report.detailedReport.rows].sort((a, b) => b.amount - a.amount).map(r => (
-                                <tr key={r.name} className="border-b border-[#444] hover:bg-white/[0.01] align-middle">
-                                  <td className="p-[7px_8px] border border-[#444] font-semibold text-white">{r.name}</td>
-                                  <td className="p-[7px_8px] border border-[#444] text-right font-bold text-white min-w-[100px] whitespace-nowrap">₹{r.amount.toLocaleString('en-IN')}</td>
-                                  <td className="p-[7px_8px] border border-[#444] text-right text-gray-300 min-w-[100px] whitespace-nowrap">{r.pct}%</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Page 3 Footer */}
-                      <div className="border-t border-white/5 pt-6 mt-6 flex justify-between items-end gap-4">
-                        <div className="text-left text-xs text-gray-400">
-                          <div>Total Contributors: <strong className="text-white">{report.detailedReport.totalContributors}</strong></div>
-                          <div className="mt-1">Total Collection: <strong className="text-gold">₹{report.detailedReport.totalCollection.toLocaleString('en-IN')}</strong></div>
-                        </div>
-                        
-                      </div>
-                    </div>
 
                   </div>
                 );
