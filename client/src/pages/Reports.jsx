@@ -6,7 +6,34 @@ import {
   Sparkles, CheckCircle, Sliders, CalendarDays, AlertTriangle,
   Printer, TrendingUp, DollarSign, Users, RefreshCw, Share2
 } from 'lucide-react';
-import XLSX from 'xlsx-js-style';
+import * as XLSXStyleModule from 'xlsx-js-style';
+import XLSXStyleDefault from 'xlsx-js-style';
+
+// Resolves the XLSX library correctly across Vite dev (ESM) and Vite production build (CJS / Rolldown bundle)
+const getXLSX = () => {
+  if (typeof window !== 'undefined' && window.XLSX && window.XLSX.utils) {
+    return window.XLSX;
+  }
+  const sources = [XLSXStyleDefault, XLSXStyleModule];
+  for (const src of sources) {
+    if (!src) continue;
+    if (src.utils && src.write) return src;
+    if (src.default && src.default.utils && src.default.write) return src.default;
+    if (typeof src === 'function') {
+      try {
+        const val = src();
+        if (val && val.utils && val.write) return val;
+      } catch (e) {}
+    }
+    if (typeof src.default === 'function') {
+      try {
+        const val = src.default();
+        if (val && val.utils && val.write) return val;
+      } catch (e) {}
+    }
+  }
+  return XLSXStyleDefault || XLSXStyleModule;
+};
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { ROBOTO_FONT_BASE64 } from '../assets/font';
@@ -101,6 +128,10 @@ const Reports = () => {
     if (!report) return;
     setExportingExcel(true);
     try {
+      const XLSX = getXLSX();
+      if (!XLSX || !XLSX.utils) {
+        throw new Error('Excel library (xlsx-js-style) could not be initialized.');
+      }
       const workbook = XLSX.utils.book_new();
 
       // Excel Styles Definition (xlsx-js-style format)
@@ -284,17 +315,17 @@ const Reports = () => {
       sheet1Merges.push({ s: { r: sheet1Rows.length - 1, c: 3 }, e: { r: sheet1Rows.length - 1, c: 4 } });
 
       const sponsorsRows = [
-        ['Premium', report.sponsorsSummary.premium, false],
-        ['Smart', report.sponsorsSummary.smart, true],
-        ['Standard', report.sponsorsSummary.standard, false],
-        ['Total New Sponsors', report.sponsorsSummary.total, false, true]
+        ['Premium', report.sponsorsSummary?.premium ?? 0, false],
+        ['Smart', report.sponsorsSummary?.smart ?? 0, true],
+        ['Standard', report.sponsorsSummary?.standard ?? 0, false],
+        ['Total New Sponsors', report.sponsorsSummary?.total ?? 0, false, true]
       ];
 
       const collectionRows = [
-        ['Global Collection', report.collectionSummary.global, false],
-        ['PRO Collection', report.collectionSummary.pro, true],
-        ['Office Collection', report.collectionSummary.office, false],
-        ['Total Collection', report.collectionSummary.total, false, true]
+        ['Global Collection', report.collectionSummary?.global ?? 0, false],
+        ['PRO Collection', report.collectionSummary?.pro ?? 0, true],
+        ['Office Collection', report.collectionSummary?.office ?? 0, false],
+        ['Total Collection', report.collectionSummary?.total ?? 0, false, true]
       ];
 
       for (let i = 0; i < 4; i++) {
@@ -380,7 +411,8 @@ const Reports = () => {
       // ROW 2.5: FINANCIAL SUMMARY (one-line summary)
       // =========================================================================
       const finSummaryRowIdx = sheet1Rows.length;
-      const finSummaryText = `TOTAL COLLECTION: ₹ ${(report.collectionSummary.total).toLocaleString('en-IN')}   |   TOTAL EXPENSE: ₹ ${(report.totalExpense || 0).toLocaleString('en-IN')}   |   NET BALANCE: ₹ ${(report.netBalance || 0).toLocaleString('en-IN')}`;
+      const totalCol = report.collectionSummary?.total || 0;
+      const finSummaryText = `TOTAL COLLECTION: ₹ ${totalCol.toLocaleString('en-IN')}   |   TOTAL EXPENSE: ₹ ${(report.totalExpense || 0).toLocaleString('en-IN')}   |   NET BALANCE: ₹ ${(report.netBalance || 0).toLocaleString('en-IN')}`;
       const finSummaryRow = Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(finSummaryText, 's', styles.financialSummary) : {});
       sheet1Rows.push(finSummaryRow);
       sheet1Merges.push({ s: { r: finSummaryRowIdx, c: 0 }, e: { r: finSummaryRowIdx, c: maxCols - 1 } });
@@ -391,12 +423,14 @@ const Reports = () => {
       // ROW 3: OTHER COLLECTIONS THROUGH PROs (Full width pivot)
       // =========================================================================
       const displayColName = (col) => {
+        if (!col) return '';
         if (col.toLowerCase() === 'markaz') return 'MKZ';
         return col.toUpperCase();
       };
 
+      const addCols = report.additionalColumns || [];
       const validPivotRows = (report.additionalPivotRows || []).filter(r => {
-        const total = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
+        const total = addCols.reduce((sum, col) => sum + (r[col] || 0), 0);
         return total > 0;
       });
 
@@ -407,10 +441,10 @@ const Reports = () => {
 
       const pivotHeaderRow = Array.from({ length: maxCols }, () => ({}));
       pivotHeaderRow[0] = makeCell('PRO NAME', 's', styles.tableHeaderLeft);
-      report.additionalColumns.forEach((col, idx) => {
+      addCols.forEach((col, idx) => {
         pivotHeaderRow[idx + 1] = makeCell(displayColName(col), 's', styles.tableHeader);
       });
-      pivotHeaderRow[report.additionalColumns.length + 1] = makeCell('TOTAL AMOUNT', 's', styles.tableHeader);
+      pivotHeaderRow[addCols.length + 1] = makeCell('TOTAL AMOUNT', 's', styles.tableHeader);
       sheet1Rows.push(pivotHeaderRow);
 
       if (validPivotRows.length > 0) {
@@ -421,11 +455,11 @@ const Reports = () => {
           const styleR = isShaded ? styles.cellShadedRight : styles.cellNormalRight;
           
           row[0] = makeCell(r.proName, 's', styleL);
-          report.additionalColumns.forEach((col, cIdx) => {
+          addCols.forEach((col, cIdx) => {
             row[cIdx + 1] = makeCell(r[col] || 0, 'n', styleR, '"₹"#,##,##0');
           });
-          const rowTotal = report.additionalColumns.reduce((sum, col) => sum + (r[col] || 0), 0);
-          row[report.additionalColumns.length + 1] = makeCell(rowTotal, 'n', styleR, '"₹"#,##,##0');
+          const rowTotal = addCols.reduce((sum, col) => sum + (r[col] || 0), 0);
+          row[addCols.length + 1] = makeCell(rowTotal, 'n', styleR, '"₹"#,##,##0');
           
           sheet1Rows.push(row);
         });
@@ -433,11 +467,11 @@ const Reports = () => {
         // Subtotal Row
         const subtotalRow = Array.from({ length: maxCols }, () => ({}));
         subtotalRow[0] = makeCell('Subtotal', 's', styles.cellBoldNormal);
-        report.additionalColumns.forEach((col, cIdx) => {
+        addCols.forEach((col, cIdx) => {
           const colSum = validPivotRows.reduce((sum, r) => sum + (r[col] || 0), 0);
           subtotalRow[cIdx + 1] = makeCell(colSum, 'n', styles.cellBoldRight, '"₹"#,##,##0');
         });
-        subtotalRow[report.additionalColumns.length + 1] = makeCell(report.additionalSubtotal, 'n', styles.cellBoldRight, '"₹"#,##,##0');
+        subtotalRow[addCols.length + 1] = makeCell(report.additionalSubtotal || 0, 'n', styles.cellBoldRight, '"₹"#,##,##0');
         
         sheet1Rows.push(subtotalRow);
       } else {
@@ -508,7 +542,8 @@ const Reports = () => {
       rankHeaderRow[3] = makeCell('CONTRIBUTION %', 's', styles.tableHeader);
       sheet1Rows.push(rankHeaderRow);
 
-      const sortedDetailedRows = [...report.detailedReport.rows].sort((a, b) => b.amount - a.amount);
+      const detailedRows = report.detailedReport?.rows || [];
+      const sortedDetailedRows = [...detailedRows].sort((a, b) => (b.amount || 0) - (a.amount || 0));
       sortedDetailedRows.forEach((r, idx) => {
         const row = Array.from({ length: maxCols }, () => ({}));
         const isShaded = idx % 2 === 1;
@@ -518,8 +553,8 @@ const Reports = () => {
         
         row[0] = makeCell(r.rank, 'n', styleC);
         row[1] = makeCell(r.name, 's', styleL);
-        row[2] = makeCell(r.amount, 'n', styleR, '"₹"#,##,##0');
-        row[3] = makeCell(`${r.pct}%`, 's', styleR);
+        row[2] = makeCell(r.amount || 0, 'n', styleR, '"₹"#,##,##0');
+        row[3] = makeCell(`${r.pct || 0}%`, 's', styleR);
         
         sheet1Rows.push(row);
       });
@@ -530,7 +565,8 @@ const Reports = () => {
       // ROW 6: GRAND TOTAL FOOTER BLOCK
       // =========================================================================
       const grandTotalRowIdx = sheet1Rows.length;
-      const grandTotalRow = Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(`GRAND TOTAL : ₹ ${report.grandTotal.toLocaleString('en-IN')}`, 's', styles.grandTotal) : {});
+      const grandTotalVal = report.grandTotal || 0;
+      const grandTotalRow = Array.from({ length: maxCols }, (_, i) => i === 0 ? makeCell(`GRAND TOTAL : ₹ ${grandTotalVal.toLocaleString('en-IN')}`, 's', styles.grandTotal) : {});
       sheet1Rows.push(grandTotalRow);
       sheet1Merges.push({ s: { r: grandTotalRowIdx, c: 0 }, e: { r: grandTotalRowIdx, c: maxCols - 1 } });
 
@@ -561,7 +597,7 @@ const Reports = () => {
         });
         ws['!cols'] = colWidths.map((w, idx) => {
           if (idx === 2) return { wch: 4 };
-          return { wch: Math.max(w + 3, 12) };
+          return { wch: Math.max((w || 0) + 3, 12) };
         });
       };
       autoFitCols(sheet1, sheet1Rows);
@@ -581,11 +617,28 @@ const Reports = () => {
         }
       ];
 
-      const fileFilter = selectedModule ? selectedModule.name.replace(/\s+/g, '_') : 'All';
-      XLSX.writeFile(workbook, `Takaful_Report_${report.subtitle.replace(/[^a-zA-Z0-9]/g, '_')}_${fileFilter}.xlsx`);
+      const fileFilter = selectedModule ? (selectedModule.name || 'All').replace(/\s+/g, '_') : 'All';
+      const safeSubtitle = (report.subtitle || 'Report').replace(/[^a-zA-Z0-9]/g, '_');
+      const fileName = `Takaful_Report_${safeSubtitle}_${fileFilter}.xlsx`;
+
+      // Export using binary array buffer and Blob for 100% reliable cross-browser file download
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8'
+      });
+      const downloadUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = fileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      setTimeout(() => {
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadUrl);
+      }, 200);
     } catch (err) {
-      console.error(err);
-      alert('Failed to generate Excel sheet');
+      console.error('Failed to export Excel:', err);
+      alert(`Failed to generate Excel sheet: ${err?.message || 'Unknown error'}`);
     } finally {
       setExportingExcel(false);
     }
