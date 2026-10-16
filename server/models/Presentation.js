@@ -8,13 +8,11 @@ const PresentationSchema = new mongoose.Schema({
   },
   collectionFilter: {
     type: String,
-    enum: ['all', 'pro', 'ofc', 'glb'],
     default: 'all'
   },
   periodType: {
     type: String,
-    enum: ['monthly', 'yearly', 'financialYear', 'custom'],
-    default: 'monthly'
+    default: 'last6Months'
   },
   customRange: {
     startDate: { type: String },

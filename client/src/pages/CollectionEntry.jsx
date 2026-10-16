@@ -672,6 +672,9 @@ const CollectionEntry = () => {
                   {MONTHS.map(m => {
                     const monthEntries = collectionsByMonth[m] || [];
                     const monthTotal = monthEntries.reduce((sum, c) => sum + (c.totalAmount || (c.amount || 0) + (c.additionalAmount || 0)), 0);
+                    const monthTakafulTotal = monthEntries.reduce((sum, c) => sum + (c.amount || 0), 0);
+                    const monthAdditionalTotal = monthEntries.reduce((sum, c) => sum + (c.additionalAmount || 0), 0);
+                    const monthExpenseTotal = monthEntries.reduce((sum, c) => sum + (c.expense || 0), 0);
                     const isExpanded = !!expandedMonths[m];
                     const submissionCount = monthEntries.length;
                     const calYear = getMonthCalendarYear(m, fyStartYear);
@@ -836,17 +839,89 @@ const CollectionEntry = () => {
                                         </tr>
                                       ))}
                                     </tbody>
+                                    {/* Month Table Footer: Column totals */}
+                                    <tfoot style={{
+                                      borderTop: '2px solid rgba(255,255,255,0.12)',
+                                      background: 'rgba(255,255,255,0.035)',
+                                    }}>
+                                      <tr>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}></td>
+                                        <td style={{ padding: '12px 16px', color: '#94a3b8', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                                          Total
+                                        </td>
+                                        <td style={{ padding: '12px 16px', color: '#f8fafc', fontWeight: 800, fontSize: 13 }}>
+                                          {m} Total <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>({monthEntries.length} {monthEntries.length === 1 ? 'officer' : 'officers'})</span>
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', color: '#f1f5f9', fontWeight: 800, fontSize: 13 }}>
+                                          ₹{monthTakafulTotal.toLocaleString('en-IN')}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', color: '#cbd5e1', fontWeight: 800, fontSize: 13 }}>
+                                          ₹{monthAdditionalTotal.toLocaleString('en-IN')}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', color: '#f87171', fontWeight: 800, fontSize: 13 }}>
+                                          ₹{monthExpenseTotal.toLocaleString('en-IN')}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 900, color: moduleColor, fontSize: 14 }}>
+                                          ₹{monthTotal.toLocaleString('en-IN')}
+                                        </td>
+                                        <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 11 }}>—</td>
+                                        <td style={{ padding: '12px 16px' }}></td>
+                                      </tr>
+                                    </tfoot>
                                   </table>
 
-                                  {/* Month sub-footer with checkbox select-all */}
-                                  <div style={{ padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={monthEntries.length > 0 && monthEntries.every(c => selectedCollectionIds.includes(c._id))}
-                                      onChange={() => handleToggleSelectMonth(m, monthEntries)}
-                                      style={{ width: 13, height: 13, cursor: 'pointer', accentColor: moduleColor }}
-                                    />
-                                    <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Select all in {m}</span>
+                                  {/* Month sub-footer with checkbox select-all and totals breakdown */}
+                                  <div style={{
+                                    padding: '10px 16px',
+                                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 12,
+                                    background: 'rgba(255,255,255,0.015)',
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: 0 }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={monthEntries.length > 0 && monthEntries.every(c => selectedCollectionIds.includes(c._id))}
+                                          onChange={() => handleToggleSelectMonth(m, monthEntries)}
+                                          style={{ width: 13, height: 13, cursor: 'pointer', accentColor: moduleColor }}
+                                        />
+                                        <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>Select all in {m}</span>
+                                      </label>
+                                      {monthEntries.some(c => selectedCollectionIds.includes(c._id)) && (
+                                        <span style={{ fontSize: 11, color: moduleColor, fontWeight: 600 }}>
+                                          ({monthEntries.filter(c => selectedCollectionIds.includes(c._id)).length} selected)
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, flexWrap: 'wrap' }}>
+                                      <span style={{ color: '#64748b' }}>
+                                        Takaful: <strong style={{ color: '#d1d5db' }}>₹{monthTakafulTotal.toLocaleString('en-IN')}</strong>
+                                      </span>
+                                      <span style={{ color: 'rgba(255,255,255,0.1)' }}>•</span>
+                                      <span style={{ color: '#64748b' }}>
+                                        Additional: <strong style={{ color: '#d1d5db' }}>₹{monthAdditionalTotal.toLocaleString('en-IN')}</strong>
+                                      </span>
+                                      <span style={{ color: 'rgba(255,255,255,0.1)' }}>•</span>
+                                      <span style={{ color: '#64748b' }}>
+                                        Expense: <strong style={{ color: '#f87171' }}>₹{monthExpenseTotal.toLocaleString('en-IN')}</strong>
+                                      </span>
+                                      <span style={{ color: 'rgba(255,255,255,0.1)' }}>•</span>
+                                      <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: 6,
+                                        background: `${moduleColor}18`,
+                                        border: `1px solid ${moduleColor}33`,
+                                        color: moduleColor,
+                                        fontWeight: 800,
+                                      }}>
+                                        {m} Total: ₹{monthTotal.toLocaleString('en-IN')}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -858,37 +933,142 @@ const CollectionEntry = () => {
                   })}
                 </div>
 
-                {/* Grand total card */}
-                <div style={{
-                  ...card,
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  padding: '20px 24px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-                  marginTop: 8,
-                }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>Cumulative summary</div>
-                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>All months in this financial year</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 20, justifyContent: 'flex-end', marginBottom: 6 }}>
-                      {[
-                        { label: 'Takaful', val: collections.reduce((s, c) => s + (c.amount||0), 0) },
-                        { label: 'Additional', val: collections.reduce((s, c) => s + (c.additionalAmount||0), 0) },
-                        { label: 'Expense', val: collections.reduce((s, c) => s + (c.expense||0), 0) },
-                      ].map(x => (
-                        <div key={x.label} style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600 }}>
-                          {x.label}: <span style={{ color: '#d1d5db' }}>₹{x.val.toLocaleString('en-IN')}</span>
+                {/* Grand total of all collections card */}
+                {(() => {
+                  const grandTakaful = collections.reduce((s, c) => s + (c.amount || 0), 0);
+                  const grandAdditional = collections.reduce((s, c) => s + (c.additionalAmount || 0), 0);
+                  const grandExpense = collections.reduce((s, c) => s + (c.expense || 0), 0);
+                  const grandTotal = collections.reduce((s, c) => s + (c.totalAmount || (c.amount || 0) + (c.additionalAmount || 0)), 0);
+                  const activeMonthsCount = MONTHS.filter(m => (collectionsByMonth[m] || []).length > 0).length;
+
+                  return (
+                    <div style={{
+                      ...card,
+                      border: `1px solid ${moduleColor}33`,
+                      background: `linear-gradient(135deg, rgba(255,255,255,0.03) 0%, ${moduleColor}0c 100%)`,
+                      padding: '22px 24px',
+                      marginTop: 12,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              padding: '3px 9px',
+                              borderRadius: 6,
+                              background: `${moduleColor}22`,
+                              border: `1px solid ${moduleColor}44`,
+                              color: moduleColor,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                            }}>
+                              Grand Total
+                            </span>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>
+                              Total of All Collections
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                            Summary of all {collections.length} recorded entries across {activeMonthsCount} active months in this financial year
+                          </div>
                         </div>
-                      ))}
+
+                        {selectedCollectionIds.length > 0 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                              <strong style={{ color: moduleColor }}>{selectedCollectionIds.length}</strong> selected
+                            </span>
+                            <button
+                              onClick={handleBulkDeleteCollections}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 8,
+                                background: 'rgba(248,113,113,0.12)',
+                                border: '1px solid rgba(248,113,113,0.25)',
+                                color: '#f87171',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                              }}
+                            >
+                              <Trash2 size={13} /> Delete Selected
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: 12,
+                      }}>
+                        <div style={{
+                          padding: '14px 18px',
+                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Total Takaful
+                          </div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9', marginTop: 4 }}>
+                            ₹{grandTakaful.toLocaleString('en-IN')}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Base collections</div>
+                        </div>
+
+                        <div style={{
+                          padding: '14px 18px',
+                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Total Additional
+                          </div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#cbd5e1', marginTop: 4 }}>
+                            ₹{grandAdditional.toLocaleString('en-IN')}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Markaz, Orphanage, etc.</div>
+                        </div>
+
+                        <div style={{
+                          padding: '14px 18px',
+                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.025)',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Total Expense
+                          </div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#f87171', marginTop: 4 }}>
+                            ₹{grandExpense.toLocaleString('en-IN')}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Reported expenditures</div>
+                        </div>
+
+                        <div style={{
+                          padding: '14px 18px',
+                          borderRadius: 10,
+                          background: `${moduleColor}12`,
+                          border: `1px solid ${moduleColor}33`,
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: moduleColor, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Net Total Collected
+                          </div>
+                          <div style={{ fontSize: 24, fontWeight: 900, color: moduleColor, marginTop: 3 }}>
+                            ₹{grandTotal.toLocaleString('en-IN')}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>Grand sum (Takaful + Additional)</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>Total collected</div>
-                    <div style={{ fontSize: 28, fontWeight: 900, color: moduleColor, letterSpacing: '-0.02em' }}>
-                      ₹{collections.reduce((s, c) => s + (c.totalAmount || (c.amount||0) + (c.additionalAmount||0)), 0).toLocaleString('en-IN')}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{collections.length} entries recorded</div>
-                  </div>
-                </div>
+                  );
+                })()}
               </>
             );
           })()}
@@ -1021,6 +1201,15 @@ const CollectionEntry = () => {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot style={{ borderTop: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}>
+                    <tr>
+                      <td colSpan={4} style={{ padding: '10px 14px', fontWeight: 700, color: '#e2e8f0' }}>Total ({parsedRows.length} rows)</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 800, color: moduleColor }}>
+                        ₹{parsedRows.reduce((s, r) => s + (r.amount || 0), 0).toLocaleString('en-IN')}
+                      </td>
+                      <td colSpan={2} style={{ padding: '10px 14px' }}></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
